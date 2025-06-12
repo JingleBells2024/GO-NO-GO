@@ -3,7 +3,7 @@ import os
 import json
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
-    QTextEdit, QFileDialog, QMessageBox, QLabel, QDialog
+    QTextEdit, QFileDialog, QMessageBox, QLabel, QDialog, QLineEdit
 )
 from openpyxl import load_workbook
 
@@ -17,10 +17,11 @@ class FinancialAnalysis(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Financial Analysis')
-        self.resize(600, 500)
+        self.resize(600, 550)
 
         self.fin_file = None
         self.tpl_file = None
+        self.api_key = None
 
         layout = QVBoxLayout()
 
@@ -38,6 +39,14 @@ class FinancialAnalysis(QWidget):
         self.tpl_label = QLabel('No template selected')
         layout.addWidget(self.tpl_label)
 
+        # API Key input
+        api_label = QLabel('Enter API Key:')
+        layout.addWidget(api_label)
+        self.api_input = QLineEdit()
+        self.api_input.setEchoMode(QLineEdit.Password)
+        self.api_input.setPlaceholderText('sk-...')
+        layout.addWidget(self.api_input)
+
         # Prompt input
         self.text_edit = QTextEdit()
         self.text_edit.setPlaceholderText('Enter prompt for ChatGPT here…')
@@ -54,7 +63,7 @@ class FinancialAnalysis(QWidget):
         path, _ = QFileDialog.getOpenFileName(
             self,
             'Choose Financial File',
-            filter='PDF Files (*.pdf);;Excel Files (*.xlsx)'
+            filter='PDF Files (*.pdf);;Excel Files (*.xlsx *.xlsm)'
         )
         if path:
             self.fin_file = path
@@ -69,7 +78,7 @@ class FinancialAnalysis(QWidget):
         path, _ = QFileDialog.getOpenFileName(
             self,
             'Choose Excel Template',
-            filter='Excel Files (*.xlsx)'
+            filter='Excel Files (*.xlsx *.xlsm)'
         )
         if path:
             self.tpl_file = path
@@ -100,6 +109,10 @@ class FinancialAnalysis(QWidget):
 
     def submit(self):
         prompt = self.text_edit.toPlainText().strip()
+        self.api_key = self.api_input.text().strip()
+        if not self.api_key:
+            QMessageBox.warning(self, 'Error', 'Please enter your API key.')
+            return
         if not self.fin_file:
             QMessageBox.warning(self, 'Error', 'Please upload a financial document.')
             return
