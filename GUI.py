@@ -2,6 +2,7 @@ import sys
 import os
 import json
 import subprocess
+import shlex
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
     QTextEdit, QFileDialog, QMessageBox, QLabel, QLineEdit
@@ -100,10 +101,11 @@ class FinancialAnalysis(QWidget):
             QMessageBox.warning(self, 'Error', 'Please enter a prompt.')
             return
 
-        # Use extractor script to perform extraction
+        # Use extractor script to perform extraction with same interpreter
+        extractor = os.path.join(os.path.dirname(__file__), 'extract.py')
         try:
             result = subprocess.run(
-                ['python3', 'extract.py', self.fin_file],
+                [sys.executable, extractor, self.fin_file],
                 capture_output=True, text=True, check=True
             )
             extracted_data = json.loads(result.stdout)
@@ -111,21 +113,24 @@ class FinancialAnalysis(QWidget):
             QMessageBox.critical(self, 'Extraction Error', f'Failed to extract data:\n{e}')
             return
 
-        # Save extracted JSON for debugging or logging
-        with open('extracted.json', 'w') as f:
+        # Save extracted JSON for AI script
+        extracted_file = os.path.abspath('extracted.json')
+        with open(extracted_file, 'w') as f:
             json.dump(extracted_data, f, indent=2)
 
-        # Launch AI processor script in new Terminal
+        # Determine path to AI script and build command
+        ai_script = os.path.join(os.path.dirname(__file__), 'GPT.py')
         cmd = (
-            f'python3 GPT.py '
-            f'--template {self.tpl_file} '
-            f'--data extracted.json '
-            f'--prompt "{prompt}" '
-            f'--key {self.api_key}'
+            f'{shlex.quote(sys.executable)} {shlex.quote(ai_script)} '
+            f'--template {shlex.quote(self.tpl_file)} '
+            f'--data {shlex.quote(extracted_file)} '
+            f'--prompt {shlex.quote(prompt)} '
+            f'--key {shlex.quote(self.api_key)}'
         )
+        # Launch AI script in new Terminal window on macOS
         subprocess.Popen([
             'osascript', '-e',
-            f'tell application "Terminal" to do script "{cmd}"'
+            f'tell application "Terminal" to do script {shlex.quote(cmd)}'
         ])
         QMessageBox.information(self, 'Started', 'Extraction done; AI script launched.')
 
