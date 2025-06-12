@@ -1,8 +1,9 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
-from openpyxl import load_workbook
+import subprocess
 import shutil
 import os
+from openpyxl import load_workbook
 
 class FinancialFillerApp:
     def __init__(self, root):
@@ -11,26 +12,23 @@ class FinancialFillerApp:
         self.input_file = None
         self.template_file = None
 
-        # File upload buttons
+        # Upload Financial File
         tk.Button(root, text="Upload Financial PDF/Excel", command=self.upload_input).pack(pady=5)
         self.input_label = tk.Label(root, text="No file uploaded", fg="gray")
         self.input_label.pack()
 
+        # Upload Template
         tk.Button(root, text="Upload Excel Template", command=self.upload_template).pack(pady=5)
         self.template_label = tk.Label(root, text="No template uploaded", fg="gray")
         self.template_label.pack()
 
-        # Prompt input
-        tk.Label(root, text="Enter GPT prompt to guide data extraction:").pack(pady=(10, 0))
+        # Prompt Input
+        tk.Label(root, text="Enter prompt to guide ChatGPT:").pack(pady=(10, 0))
         self.prompt_entry = tk.Text(root, height=5, width=60)
-        self.prompt_entry.pack()
+        self.prompt_entry.pack(pady=(0, 10))
 
-        # Fill button
-        tk.Button(root, text="Fill Template", command=self.fill_template).pack(pady=10)
-
-        # Status label
-        self.status_label = tk.Label(root, text="", fg="blue")
-        self.status_label.pack()
+        # Submit Button
+        tk.Button(root, text="Submit", command=self.submit).pack(pady=5)
 
     def upload_input(self):
         file = filedialog.askopenfilename(title="Choose Financial File")
@@ -44,9 +42,9 @@ class FinancialFillerApp:
             self.template_file = file
             self.template_label.config(text=os.path.basename(file), fg="black")
 
-    def fill_template(self):
+    def submit(self):
         if not self.input_file or not self.template_file:
-            messagebox.showerror("Error", "Please upload both financial and template files.")
+            messagebox.showerror("Error", "Please upload both a financial file and a template.")
             return
 
         prompt = self.prompt_entry.get("1.0", tk.END).strip()
@@ -55,32 +53,32 @@ class FinancialFillerApp:
             return
 
         try:
-            self.status_label.config(text="Processing...")
-
-            # Simulate ChatGPT output (you'll replace this with real GPT call)
+            # 🔧 Simulated result from ChatGPT
             extracted_data = {
                 "Revenue": 964021.78,
                 "COGS": 156873.40,
                 "Net Profit": 169329.63
             }
 
-            # Fill the template
+            # Save new Excel
             output_path = os.path.join(os.path.dirname(self.template_file), "filled_output.xlsx")
             shutil.copy(self.template_file, output_path)
             wb = load_workbook(output_path)
             ws = wb.active
 
-            # Example insert – update with your actual cell map
+            # Example cell filling
             ws["J5"] = extracted_data["Revenue"]
             ws["J6"] = extracted_data["COGS"]
             ws["J13"] = extracted_data["Net Profit"]
             wb.save(output_path)
 
-            self.status_label.config(text=f"Template filled successfully → {output_path}", fg="green")
-            messagebox.showinfo("Success", f"Saved to:\n{output_path}")
+            # Ask to open the file
+            open_now = messagebox.askyesno("Done", "Template filled and saved as 'filled_output.xlsx'.\nOpen now?")
+            if open_now:
+                subprocess.call(["open", output_path])  # macOS: open with default app
+
         except Exception as e:
-            self.status_label.config(text="Failed to fill template.", fg="red")
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Error", f"Failed to fill template.\n{str(e)}")
 
 # Run the app
 if __name__ == "__main__":
