@@ -9,21 +9,22 @@ class FinancialFillerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Financial Analysis")
+        self.root.configure(bg="#232323")  # Set a dark grey background for the window
 
         # Title label at the top
-        tk.Label(root, text="Financial Analysis", font=("Arial", 18, "bold")).pack(pady=(10, 15))
+        tk.Label(root, text="Financial Analysis", font=("Arial", 18, "bold"), bg="#232323", fg="white").pack(pady=(10, 15))
 
         self.input_file = None
         self.template_file = None
 
         # Upload Financial File
-        tk.Button(root, text="Upload Financial PDF/Excel", command=self.upload_input).pack(pady=5)
-        self.input_label = tk.Label(root, text="No file uploaded", fg="gray")
+        tk.Button(root, text="Upload Financial PDF/Excel", command=self.upload_input, bg="#444", fg="white").pack(pady=5)
+        self.input_label = tk.Label(root, text="No file uploaded", fg="gray", bg="#232323")
         self.input_label.pack()
 
         # Upload Template
-        tk.Button(root, text="Upload Excel Template", command=self.upload_template).pack(pady=5)
-        self.template_label = tk.Label(root, text="No template uploaded", fg="gray")
+        tk.Button(root, text="Upload Excel Template", command=self.upload_template, bg="#444", fg="white").pack(pady=5)
+        self.template_label = tk.Label(root, text="No template uploaded", fg="gray", bg="#232323")
         self.template_label.pack()
 
         # Prompt Input (WHITE background, BLACK text)
@@ -34,19 +35,19 @@ class FinancialFillerApp:
         self.prompt_entry.insert("1.0", "Enter prompt for ChatGPT here...")
 
         # Submit Button
-        tk.Button(root, text="Submit", command=self.submit).pack(pady=10)
+        tk.Button(root, text="Submit", command=self.submit, bg="#444", fg="white").pack(pady=10)
 
     def upload_input(self):
         file = filedialog.askopenfilename(title="Choose Financial File")
         if file:
             self.input_file = file
-            self.input_label.config(text=os.path.basename(file), fg="black")
+            self.input_label.config(text=os.path.basename(file), fg="white")
 
     def upload_template(self):
         file = filedialog.askopenfilename(title="Choose Excel Template", filetypes=[("Excel files", "*.xlsx")])
         if file:
             self.template_file = file
-            self.template_label.config(text=os.path.basename(file), fg="black")
+            self.template_label.config(text=os.path.basename(file), fg="white")
 
     def submit(self):
         if not self.input_file or not self.template_file:
