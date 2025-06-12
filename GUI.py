@@ -9,34 +9,64 @@ class FinancialFillerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Financial Analysis")
-        self.root.configure(bg="#000000")  # Set background to black
-        self.root.minsize(600, 500)        # Ensure window is large enough
+        self.root.minsize(600, 500)
 
-        # Title label at the top
-        tk.Label(root, text="Financial Analysis", font=("Arial", 18, "bold"), bg="#000000", fg="white").pack(pady=(10, 15))
+        # ← This Frame is your true black background
+        container = tk.Frame(root, bg="black")
+        container.pack(fill="both", expand=True)
+
+        # Title at the top
+        tk.Label(
+            container,
+            text="Financial Analysis",
+            font=("Arial", 18, "bold"),
+            bg="black",
+            fg="white"
+        ).pack(pady=(10, 15))
 
         self.input_file = None
         self.template_file = None
 
         # Upload Financial File
-        tk.Button(root, text="Upload Financial PDF/Excel", command=self.upload_input, bg="#333333", fg="white").pack(pady=5)
-        self.input_label = tk.Label(root, text="No file uploaded", fg="gray", bg="#000000")
+        tk.Button(
+            container,
+            text="Upload Financial PDF/Excel",
+            command=self.upload_input
+        ).pack(pady=5)
+        self.input_label = tk.Label(
+            container, text="No file uploaded", fg="gray", bg="black"
+        )
         self.input_label.pack()
 
         # Upload Template
-        tk.Button(root, text="Upload Excel Template", command=self.upload_template, bg="#333333", fg="white").pack(pady=5)
-        self.template_label = tk.Label(root, text="No template uploaded", fg="gray", bg="#000000")
+        tk.Button(
+            container,
+            text="Upload Excel Template",
+            command=self.upload_template
+        ).pack(pady=5)
+        self.template_label = tk.Label(
+            container, text="No template uploaded", fg="gray", bg="black"
+        )
         self.template_label.pack()
 
-        # Prompt Input (WHITE background, BLACK text)
+        # Prompt Input: always white so you can see it
         self.prompt_entry = tk.Text(
-            root, height=5, width=60, bg="white", fg="black", insertbackground="black"
+            container,
+            height=5,
+            width=60,
+            bg="white",
+            fg="black",
+            insertbackground="black"
         )
         self.prompt_entry.pack(pady=(20, 5))
         self.prompt_entry.insert("1.0", "Enter prompt for ChatGPT here...")
 
         # Submit Button
-        tk.Button(root, text="Submit", command=self.submit, bg="#333333", fg="white").pack(pady=10)
+        tk.Button(
+            container,
+            text="Submit",
+            command=self.submit
+        ).pack(pady=10)
 
     def upload_input(self):
         file = filedialog.askopenfilename(title="Choose Financial File")
@@ -45,7 +75,10 @@ class FinancialFillerApp:
             self.input_label.config(text=os.path.basename(file), fg="white")
 
     def upload_template(self):
-        file = filedialog.askopenfilename(title="Choose Excel Template", filetypes=[("Excel files", "*.xlsx")])
+        file = filedialog.askopenfilename(
+            title="Choose Excel Template",
+            filetypes=[("Excel files", "*.xlsx")]
+        )
         if file:
             self.template_file = file
             self.template_label.config(text=os.path.basename(file), fg="white")
@@ -61,35 +94,36 @@ class FinancialFillerApp:
             return
 
         try:
-            # Simulated result from ChatGPT
+            # Simulated ChatGPT result
             extracted_data = {
                 "Revenue": 964021.78,
                 "COGS": 156873.40,
                 "Net Profit": 169329.63
             }
 
-            # Save new Excel
-            output_path = os.path.join(os.path.dirname(self.template_file), "filled_output.xlsx")
+            output_path = os.path.join(
+                os.path.dirname(self.template_file),
+                "filled_output.xlsx"
+            )
             shutil.copy(self.template_file, output_path)
             wb = load_workbook(output_path)
             ws = wb.active
 
-            # Example cell filling
             ws["J5"] = extracted_data["Revenue"]
             ws["J6"] = extracted_data["COGS"]
             ws["J13"] = extracted_data["Net Profit"]
             wb.save(output_path)
 
-            # Ask to open the file
-            open_now = messagebox.askyesno("Done", "Template filled and saved as 'filled_output.xlsx'.\nOpen now?")
+            open_now = messagebox.askyesno(
+                "Done",
+                "Template filled and saved as 'filled_output.xlsx'.\nOpen now?"
+            )
             if open_now:
-                subprocess.call(["open", output_path])  # macOS: open with default app
-
+                subprocess.call(["open", output_path])
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to fill template.\n{str(e)}")
+            messagebox.showerror("Error", f"Failed to fill template.\n{e}")
 
-# Run the app
 if __name__ == "__main__":
     root = tk.Tk()
-    app = FinancialFillerApp(root)
+    FinancialFillerApp(root)
     root.mainloop()
