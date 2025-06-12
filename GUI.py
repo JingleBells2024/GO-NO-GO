@@ -1,30 +1,19 @@
-import tkinter as tk
+import PySimpleGUI as sg
 
-def upload_financial():
-    # placeholder for file‐upload logic
-    pass
+layout = [
+    [sg.Text('Financial Analysis', font=('Arial', 16))],
+    [sg.Button('Upload Financial PDF/Excel'), sg.Button('Upload Excel Template')],
+    [sg.Multiline(size=(50,5), key='-PROMPT-')],
+    [sg.Button('Submit')]
+]
 
-def upload_template():
-    # placeholder for file‐upload logic
-    pass
+window = sg.Window('Financial Analysis', layout)
 
-def submit():
-    # placeholder for submit action
-    print("Submit clicked. Text:", text_box.get("1.0", tk.END).strip())
+while True:
+    event, values = window.read()
+    if event in (sg.WIN_CLOSED,):
+        break
+    if event == 'Submit':
+        print('Prompt:', values['-PROMPT-'])
 
-root = tk.Tk()
-root.title("Financial Analysis")
-root.geometry("400x300")
-
-# Buttons
-tk.Button(root, text="Upload Financial PDF/Excel", command=upload_financial).pack(pady=10)
-tk.Button(root, text="Upload Excel Template",   command=upload_template).pack(pady=10)
-
-# Text box
-text_box = tk.Text(root, height=5, width=40)
-text_box.pack(pady=10)
-
-# Submit
-tk.Button(root, text="Submit", command=submit).pack(pady=10)
-
-root.mainloop()
+window.close()
