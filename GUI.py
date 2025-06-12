@@ -124,7 +124,7 @@ class FinancialAnalysis(QWidget):
             QMessageBox.warning(self, 'Error', 'Please enter a prompt.')
             return
 
-        # Extract raw data in-process (no subprocess)
+        # Extract raw data in-process (same interpreter)
         ext = os.path.splitext(self.fin_file)[1].lower()
         if ext in ('.xlsx', '.xlsm'):
             extracted_data = self.extract_excel(self.fin_file)
@@ -134,12 +134,12 @@ class FinancialAnalysis(QWidget):
             QMessageBox.warning(self, 'Error', 'Unsupported file type for extraction.')
             return
 
-        # Save extracted JSON for AI script
+        # Save extracted JSON
         extracted_file = os.path.abspath('extracted.json')
         with open(extracted_file, 'w') as f:
             json.dump(extracted_data, f, indent=2)
 
-        # Launch AI processor script in new Terminal
+        # Launch AI processor (GPT.py) in new Terminal
         ai_script = os.path.join(os.path.dirname(__file__), 'GPT.py')
         cmd = (
             f'{shlex.quote(sys.executable)} {shlex.quote(ai_script)} '
@@ -148,10 +148,10 @@ class FinancialAnalysis(QWidget):
             f'--prompt {shlex.quote(prompt)} '
             f'--key {shlex.quote(self.api_key)}'
         )
-        subprocess.Popen([
-            'osascript', '-e',
-            f'tell application "Terminal" to do script {shlex.quote(cmd)}'
-        ])
+        # wrap cmd in quotes for AppleScript
+        apple_cmd = f'tell application "Terminal" to do script "{cmd}"'
+        subprocess.Popen(['osascript', '-e', apple_cmd])
+
         QMessageBox.information(self, 'Started', 'Extraction done; AI script launched.')
 
 if __name__ == '__main__':
