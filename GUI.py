@@ -1,68 +1,136 @@
 import sys
+import os
+import json
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
-    QTextEdit, QFileDialog, QMessageBox
+    QTextEdit, QFileDialog, QMessageBox, QLabel, QDialog
 )
+from openpyxl import load_workbook
+
+try:
+    from PyPDF2 import PdfReader
+    PDF_SUPPORTED = True
+except ImportError:
+    PDF_SUPPORTED = False
 
 class FinancialAnalysis(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Financial Analysis')
-        self.resize(400, 350)
+        self.resize(600, 500)
 
         self.fin_file = None
         self.tpl_file = None
 
         layout = QVBoxLayout()
 
-        # Upload buttons
+        # Upload Financial File
         btn1 = QPushButton('Upload Financial PDF/Excel')
         btn1.clicked.connect(self.upload_financial)
         layout.addWidget(btn1)
+        self.fin_label = QLabel('No financial file selected')
+        layout.addWidget(self.fin_label)
 
+        # Upload Excel Template
         btn2 = QPushButton('Upload Excel Template')
         btn2.clicked.connect(self.upload_template)
         layout.addWidget(btn2)
+        self.tpl_label = QLabel('No template selected')
+        layout.addWidget(self.tpl_label)
 
-        # ← Visible, multi-line text box
+        # Prompt input
         self.text_edit = QTextEdit()
         self.text_edit.setPlaceholderText('Enter prompt for ChatGPT here…')
         layout.addWidget(self.text_edit)
 
         # Submit
-        submit = QPushButton('Submit')
-        submit.clicked.connect(self.submit)
-        layout.addWidget(submit)
+        submit_btn = QPushButton('Submit')
+        submit_btn.clicked.connect(self.submit)
+        layout.addWidget(submit_btn)
 
         self.setLayout(layout)
 
     def upload_financial(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, 'Choose Financial File',
+            self,
+            'Choose Financial File',
             filter='PDF Files (*.pdf);;Excel Files (*.xlsx)'
         )
         if path:
             self.fin_file = path
+            self.fin_label.setText(os.path.basename(path))
+            self.fin_label.setStyleSheet('color: green')
+        else:
+            self.fin_file = None
+            self.fin_label.setText('No financial file selected')
+            self.fin_label.setStyleSheet('color: red')
 
     def upload_template(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, 'Choose Excel Template',
+            self,
+            'Choose Excel Template',
             filter='Excel Files (*.xlsx)'
         )
         if path:
             self.tpl_file = path
+            self.tpl_label.setText(os.path.basename(path))
+            self.tpl_label.setStyleSheet('color: green')
+        else:
+            self.tpl_file = None
+            self.tpl_label.setText('No template selected')
+            self.tpl_label.setStyleSheet('color: red')
+
+    def extract_excel(self, path):
+        wb = load_workbook(path, data_only=True)
+        out = {}
+        for sheet in wb.sheetnames:
+            ws = wb[sheet]
+            out[sheet] = [list(row) for row in ws.iter_rows(values_only=True)]
+        return out
+
+    def extract_pdf(self, path):
+        if not PDF_SUPPORTED:
+            QMessageBox.critical(self, 'Error', 'Install PyPDF2 to extract PDF files.')
+            return {}
+        reader = PdfReader(path)
+        pages = []
+        for p in reader.pages:
+            pages.append(p.extract_text() or '')
+        return {'pages': pages}
 
     def submit(self):
         prompt = self.text_edit.toPlainText().strip()
-        if not self.fin_file or not self.tpl_file:
-            QMessageBox.warning(self, 'Error', 'Please upload both files first.')
+        if not self.fin_file:
+            QMessageBox.warning(self, 'Error', 'Please upload a financial document.')
+            return
+        if not self.tpl_file:
+            QMessageBox.warning(self, 'Error', 'Please upload an Excel template.')
             return
         if not prompt:
             QMessageBox.warning(self, 'Error', 'Please enter a prompt.')
             return
 
-        # For demo, just echo it:
-        QMessageBox.information(self, 'Submitted Prompt', prompt)
+        # Perform extraction
+        ext = os.path.splitext(self.fin_file)[1].lower()
+        if ext in ('.xlsx', '.xlsm'):
+            data = self.extract_excel(self.fin_file)
+        elif ext == '.pdf':
+            data = self.extract_pdf(self.fin_file)
+        else:
+            QMessageBox.warning(self, 'Error', 'Unsupported file type for extraction.')
+            return
+
+        # Display extracted data in a dialog
+        dlg = QDialog(self)
+        dlg.setWindowTitle('Extracted Data')
+        dlg.resize(600, 400)
+        dlg_layout = QVBoxLayout()
+        text = QTextEdit()
+        text.setReadOnly(True)
+        text.setText(json.dumps(data, indent=2, default=str))
+        dlg_layout.addWidget(text)
+        dlg.setLayout(dlg_layout)
+        dlg.exec_()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
