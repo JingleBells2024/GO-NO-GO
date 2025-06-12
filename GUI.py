@@ -3,6 +3,7 @@ import os
 import json
 import subprocess
 import shlex
+import re
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
     QTextEdit, QFileDialog, QMessageBox, QLabel, QLineEdit
@@ -108,9 +109,9 @@ class FinancialAnalysis(QWidget):
         return {'pages': pages}
 
     def submit(self):
-        # Validate inputs
         prompt = self.text_edit.toPlainText().strip()
         self.api_key = self.api_input.text().strip()
+        # Validate inputs
         if not self.api_key:
             QMessageBox.warning(self, 'Error', 'Please enter your API key.')
             return
@@ -124,7 +125,7 @@ class FinancialAnalysis(QWidget):
             QMessageBox.warning(self, 'Error', 'Please enter a prompt.')
             return
 
-        # Extract raw data in-process (same interpreter)
+        # Extract raw data in-process
         ext = os.path.splitext(self.fin_file)[1].lower()
         if ext in ('.xlsx', '.xlsm'):
             extracted_data = self.extract_excel(self.fin_file)
@@ -139,6 +140,13 @@ class FinancialAnalysis(QWidget):
         with open(extracted_file, 'w') as f:
             json.dump(extracted_data, f, indent=2)
 
+        # Parse year from prompt
+        m = re.search(r'20\d{2}', prompt)
+        if not m:
+            QMessageBox.warning(self, 'Error', 'Could not find a 4-digit year in your prompt.')
+            return
+        year = m.group(0)
+
         # Launch AI processor (GPT.py) in new Terminal
         ai_script = os.path.join(os.path.dirname(__file__), 'GPT.py')
         cmd = (
@@ -146,9 +154,9 @@ class FinancialAnalysis(QWidget):
             f'--template {shlex.quote(self.tpl_file)} '
             f'--data {shlex.quote(extracted_file)} '
             f'--prompt {shlex.quote(prompt)} '
+            f'--year {year} '
             f'--key {shlex.quote(self.api_key)}'
         )
-        # wrap cmd in quotes for AppleScript
         apple_cmd = f'tell application "Terminal" to do script "{cmd}"'
         subprocess.Popen(['osascript', '-e', apple_cmd])
 
