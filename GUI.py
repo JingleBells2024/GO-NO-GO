@@ -8,7 +8,11 @@ from openpyxl import load_workbook
 class FinancialFillerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("GO-NO-GO Financial Filler")
+        self.root.title("Financial Analysis")
+
+        # Title label at the top
+        tk.Label(root, text="Financial Analysis", font=("Arial", 18, "bold")).pack(pady=(10, 15))
+
         self.input_file = None
         self.template_file = None
 
@@ -23,12 +27,12 @@ class FinancialFillerApp:
         self.template_label.pack()
 
         # Prompt Input
-        tk.Label(root, text="Enter prompt to guide ChatGPT:").pack(pady=(10, 0))
         self.prompt_entry = tk.Text(root, height=5, width=60)
-        self.prompt_entry.pack(pady=(0, 10))
+        self.prompt_entry.pack(pady=(20, 5))
+        self.prompt_entry.insert("1.0", "Enter prompt for ChatGPT here...")
 
         # Submit Button
-        tk.Button(root, text="Submit", command=self.submit).pack(pady=5)
+        tk.Button(root, text="Submit", command=self.submit).pack(pady=10)
 
     def upload_input(self):
         file = filedialog.askopenfilename(title="Choose Financial File")
@@ -48,12 +52,12 @@ class FinancialFillerApp:
             return
 
         prompt = self.prompt_entry.get("1.0", tk.END).strip()
-        if not prompt:
+        if not prompt or prompt == "Enter prompt for ChatGPT here...":
             messagebox.showerror("Error", "Please enter a prompt to guide ChatGPT.")
             return
 
         try:
-            # 🔧 Simulated result from ChatGPT
+            # Simulated result from ChatGPT
             extracted_data = {
                 "Revenue": 964021.78,
                 "COGS": 156873.40,
