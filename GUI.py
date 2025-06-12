@@ -26,8 +26,10 @@ class FinancialFillerApp:
         self.template_label = tk.Label(root, text="No template uploaded", fg="gray")
         self.template_label.pack()
 
-        # Prompt Input
-        self.prompt_entry = tk.Text(root, height=5, width=60)
+        # Prompt Input (WHITE background, BLACK text)
+        self.prompt_entry = tk.Text(
+            root, height=5, width=60, bg="white", fg="black", insertbackground="black"
+        )
         self.prompt_entry.pack(pady=(20, 5))
         self.prompt_entry.insert("1.0", "Enter prompt for ChatGPT here...")
 
