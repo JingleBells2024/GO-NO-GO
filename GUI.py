@@ -7,6 +7,13 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
     QTextEdit, QFileDialog, QMessageBox, QLabel, QLineEdit
 )
+from openpyxl import load_workbook
+
+try:
+    from PyPDF2 import PdfReader
+    PDF_SUPPORTED = True
+except ImportError:
+    PDF_SUPPORTED = False
 
 class FinancialAnalysis(QWidget):
     def __init__(self):
@@ -84,6 +91,22 @@ class FinancialAnalysis(QWidget):
             self.tpl_label.setText('No template selected')
             self.tpl_label.setStyleSheet('color: red')
 
+    def extract_excel(self, path):
+        wb = load_workbook(path, data_only=True)
+        out = {}
+        for sheet in wb.sheetnames:
+            ws = wb[sheet]
+            out[sheet] = [list(row) for row in ws.iter_rows(values_only=True)]
+        return out
+
+    def extract_pdf(self, path):
+        if not PDF_SUPPORTED:
+            QMessageBox.critical(self, 'Error', 'Install PyPDF2 to extract PDF files.')
+            return {}
+        reader = PdfReader(path)
+        pages = [p.extract_text() or '' for p in reader.pages]
+        return {'pages': pages}
+
     def submit(self):
         # Validate inputs
         prompt = self.text_edit.toPlainText().strip()
@@ -101,16 +124,14 @@ class FinancialAnalysis(QWidget):
             QMessageBox.warning(self, 'Error', 'Please enter a prompt.')
             return
 
-        # Use extractor script to perform extraction with same interpreter
-        extractor = os.path.join(os.path.dirname(__file__), 'extract.py')
-        try:
-            result = subprocess.run(
-                [sys.executable, extractor, self.fin_file],
-                capture_output=True, text=True, check=True
-            )
-            extracted_data = json.loads(result.stdout)
-        except Exception as e:
-            QMessageBox.critical(self, 'Extraction Error', f'Failed to extract data:\n{e}')
+        # Extract raw data in-process (no subprocess)
+        ext = os.path.splitext(self.fin_file)[1].lower()
+        if ext in ('.xlsx', '.xlsm'):
+            extracted_data = self.extract_excel(self.fin_file)
+        elif ext == '.pdf':
+            extracted_data = self.extract_pdf(self.fin_file)
+        else:
+            QMessageBox.warning(self, 'Error', 'Unsupported file type for extraction.')
             return
 
         # Save extracted JSON for AI script
@@ -118,7 +139,7 @@ class FinancialAnalysis(QWidget):
         with open(extracted_file, 'w') as f:
             json.dump(extracted_data, f, indent=2)
 
-        # Determine path to AI script and build command
+        # Launch AI processor script in new Terminal
         ai_script = os.path.join(os.path.dirname(__file__), 'GPT.py')
         cmd = (
             f'{shlex.quote(sys.executable)} {shlex.quote(ai_script)} '
@@ -127,7 +148,6 @@ class FinancialAnalysis(QWidget):
             f'--prompt {shlex.quote(prompt)} '
             f'--key {shlex.quote(self.api_key)}'
         )
-        # Launch AI script in new Terminal window on macOS
         subprocess.Popen([
             'osascript', '-e',
             f'tell application "Terminal" to do script {shlex.quote(cmd)}'
