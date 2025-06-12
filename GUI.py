@@ -1,9 +1,12 @@
 import sys
 import os
 import json
+import re
+import subprocess
+import shlex
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
-    QTextEdit, QFileDialog, QMessageBox, QLabel, QDialog, QLineEdit
+    QTextEdit, QFileDialog, QMessageBox, QLabel, QLineEdit
 )
 from openpyxl import load_workbook
 
@@ -123,7 +126,7 @@ class FinancialAnalysis(QWidget):
             QMessageBox.warning(self, 'Error', 'Please enter a prompt.')
             return
 
-        # Perform extraction
+        # 1) extract raw data
         ext = os.path.splitext(self.fin_file)[1].lower()
         if ext in ('.xlsx', '.xlsm'):
             data = self.extract_excel(self.fin_file)
@@ -133,17 +136,31 @@ class FinancialAnalysis(QWidget):
             QMessageBox.warning(self, 'Error', 'Unsupported file type for extraction.')
             return
 
-        # Display extracted data in a dialog
-        dlg = QDialog(self)
-        dlg.setWindowTitle('Extracted Data')
-        dlg.resize(600, 400)
-        dlg_layout = QVBoxLayout()
-        text = QTextEdit()
-        text.setReadOnly(True)
-        text.setText(json.dumps(data, indent=2, default=str))
-        dlg_layout.addWidget(text)
-        dlg.setLayout(dlg_layout)
-        dlg.exec_()
+        # 2) write raw to a JSON file for GPT
+        extracted_file = os.path.abspath('extracted.json')
+        with open(extracted_file, 'w') as f:
+            json.dump(data, f)
+
+        # 3) determine year from prompt (first occurrence of 20xx)
+        m = re.search(r'20\d{2}', prompt)
+        year = int(m.group(0)) if m else 0
+
+        # 4) build and launch GPT script in a new Terminal
+        gpt_script = os.path.abspath('GPT.py')
+        cmd = (
+            f'python3 {shlex.quote(gpt_script)} '
+            f'--template {shlex.quote(self.tpl_file)} '
+            f'--data {shlex.quote(extracted_file)} '
+            f'--prompt {shlex.quote(prompt)} '
+            f'--year {year} '
+            f'--key {shlex.quote(self.api_key)}'
+        )
+        # macOS: open new Terminal window
+        subprocess.Popen([
+            'osascript', '-e',
+            f'tell application "Terminal" to do script {shlex.quote(cmd)}'
+        ])
+        QMessageBox.information(self, 'Started', 'AI script launched in new Terminal.')
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
