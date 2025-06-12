@@ -1,3 +1,4 @@
+# gui.py
 import sys
 import os
 import json
@@ -155,10 +156,15 @@ class FinancialAnalysis(QWidget):
             f'--data {shlex.quote(extracted_file)} '
             f'--prompt {shlex.quote(prompt)} '
             f'--year {year} '
-            f'--key {shlex.quote(self.api_key)}'
+            f'--key {shlex.quote(self.api_input.text().strip())}'
         )
-        apple_cmd = f'tell application "Terminal" to do script "{cmd}"'
-        subprocess.Popen(['osascript', '-e', apple_cmd])
+        # two-step AppleScript invocation to avoid quoting issues
+        apple_args = [
+            'osascript',
+            '-e', 'tell application "Terminal" to activate',
+            '-e', f'tell application "Terminal" to do script "{cmd}" in front window'
+        ]
+        subprocess.Popen(apple_args)
 
         QMessageBox.information(self, 'Started', 'Extraction done; AI script launched.')
 
@@ -167,3 +173,70 @@ if __name__ == '__main__':
     win = FinancialAnalysis()
     win.show()
     sys.exit(app.exec_())
+
+
+# GPT.py
+import os
+import json
+import openai
+from openpyxl import load_workbook
+
+
+def extract_with_gpt(extracted_data: dict, user_prompt: str, api_key: str) -> dict:
+    openai.api_key = api_key
+    messages = [
+        {"role": "system", "content": (
+            "You are a financial data extractor."
+            " Given raw P&L data, return ONLY a JSON object"
+            " mapping each field name to its numeric value."
+        )},
+        {"role": "user", "content": json.dumps(extracted_data)},
+        {"role": "user", "content": user_prompt}
+    ]
+    resp = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=messages,
+        temperature=0
+    )
+    body = resp.choices[0].message.content.strip()
+    values = json.loads(body)
+    # print JSON for verification
+    print(json.dumps(values, indent=2))
+    return values
+
+
+def fill_template(template_path: str,
+                  output_path: str,
+                  values: dict,
+                  cell_map: dict):
+    wb = load_workbook(template_path)
+    ws = wb.active
+    for field, cell in cell_map.items():
+        if field in values:
+            ws[cell] = values[field]
+    wb.save(output_path)
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--template", required=True)
+    parser.add_argument("--data",     required=True)
+    parser.add_argument("--prompt",   required=True)
+    parser.add_argument("--year",     type=int, required=True)
+    parser.add_argument("--key",      required=True)
+    args = parser.parse_args()
+
+    extracted = json.load(open(args.data))
+    values = extract_with_gpt(extracted, args.prompt, args.key)
+
+    # define cell maps per year
+    maps = {
+        2023: {"Revenue":"D10","COGS":"D11","NetProfit":"D12"},
+        2024: {"Revenue":"E10","COGS":"E11","NetProfit":"E12"},
+        2025: {"Revenue":"F10","COGS":"F11","NetProfit":"F12"},
+    }
+    cell_map = maps.get(args.year, {})
+    out = os.path.splitext(args.template)[0] + f"_filled_{args.year}.xlsx"
+    fill_template(args.template, out, values, cell_map)
+    print(f"Finished! Output saved to {out}")
