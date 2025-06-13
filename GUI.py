@@ -127,22 +127,30 @@ class FinancialAnalysis(QWidget):
 
         # 3) Launch GPT script in new Terminal
         gpt_script = os.path.join(os.path.dirname(__file__), 'GPT.py')
-        cmd = (
-            f"{shlex.quote(sys.executable)} {shlex.quote(gpt_script)} "
-            f"--template {shlex.quote(self.tpl_file)} "
-            f"--data {shlex.quote(raw_file)} "
-            f"--prompt {shlex.quote(prompt)} "
-            f"--year {year} "
-            f"--key {shlex.quote(self.api_key)}"
-        )
-        apple = [
-            'osascript',
-            '-e', 'tell application "Terminal"',
-            '-e', f'  do script "{cmd}"',
-            '-e', '  activate',
-            '-e', 'end tell'
+        # Use shlex.quote for all args to escape safely
+        args = [
+            shlex.quote(sys.executable),
+            shlex.quote(gpt_script),
+            "--template", shlex.quote(self.tpl_file),
+            "--data", shlex.quote(raw_file),
+            "--prompt", shlex.quote(prompt),
+            "--year", str(year),
+            "--key", shlex.quote(self.api_key)
         ]
-        subprocess.Popen(apple)
+        # Join as a single shell-safe string
+        safe_cmd = ' '.join(args)
+        # Escape backslashes and double quotes for AppleScript
+        safe_cmd_applescript = safe_cmd.replace("\\", "\\\\").replace('"', '\\"')
+
+        # Use a single -e for all AppleScript for best quoting
+        applescript = f'''
+        tell application "Terminal"
+            activate
+            do script "{safe_cmd_applescript}"
+        end tell
+        '''
+        subprocess.Popen(['osascript', '-e', applescript])
+
         QMessageBox.information(self, 'Started', 'Extraction and GPT scripts launched.')
 
 if __name__ == '__main__':
