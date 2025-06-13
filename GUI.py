@@ -146,18 +146,9 @@ class FinancialAnalysis(QWidget):
 
         os.chmod(script_path, 0o755)
 
-        # 5) Write the AppleScript to a temporary file
-        with tempfile.NamedTemporaryFile('w', delete=False, suffix='.applescript') as af:
-            af.write(f'''
-tell application "Terminal"
-    activate
-    do script "{script_path}"
-end tell
-''')
-            applescript_path = af.name
-
-        # 6) Launch the AppleScript (this opens Terminal and runs the shell script)
-        subprocess.Popen(['osascript', applescript_path])
+        # 5) LAUNCH the shell script using open -a Terminal
+        # THIS IS THE ONLY LINE THAT CHANGED TO FIX YOUR ISSUE!
+        subprocess.Popen(['open', '-a', 'Terminal', script_path])
 
         QMessageBox.information(self, 'Started', 'Extraction and GPT scripts launched.')
 
