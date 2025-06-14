@@ -2,12 +2,12 @@ import sys
 import os
 import json
 import subprocess
-import shlex
-import re
+import platform
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
     QTextEdit, QFileDialog, QMessageBox, QLabel, QLineEdit
 )
+from compiler import map_to_excel  # Import as a function
 
 class FinancialAnalysis(QWidget):
     def __init__(self):
@@ -21,21 +21,18 @@ class FinancialAnalysis(QWidget):
 
         layout = QVBoxLayout()
 
-        # Financial File selector
         btn1 = QPushButton('Upload Financial PDF/Excel')
         btn1.clicked.connect(self.upload_financial)
         layout.addWidget(btn1)
         self.fin_label = QLabel('No financial file selected')
         layout.addWidget(self.fin_label)
 
-        # Template selector
         btn2 = QPushButton('Upload Excel Template')
         btn2.clicked.connect(self.upload_template)
         layout.addWidget(btn2)
         self.tpl_label = QLabel('No template selected')
         layout.addWidget(self.tpl_label)
 
-        # API key input
         api_label = QLabel('Enter API Key:')
         layout.addWidget(api_label)
         self.api_input = QLineEdit()
@@ -43,14 +40,12 @@ class FinancialAnalysis(QWidget):
         self.api_input.setPlaceholderText('sk-...')
         layout.addWidget(self.api_input)
 
-        # Prompt input
         prompt_label = QLabel('GPT Prompt:')
         layout.addWidget(prompt_label)
         self.text_edit = QTextEdit()
         self.text_edit.setPlaceholderText('Include the year in your prompt, e.g., "Extract all financial fields for 2024..."')
         layout.addWidget(self.text_edit)
 
-        # Submit
         submit_btn = QPushButton('Submit')
         submit_btn.clicked.connect(self.submit)
         layout.addWidget(submit_btn)
@@ -102,32 +97,60 @@ class FinancialAnalysis(QWidget):
             QMessageBox.warning(self, 'Error', 'Enter a prompt.')
             return
 
+        # Extraction step
         extractor = os.path.join(os.path.dirname(__file__), 'extract.py')
         try:
             res = subprocess.run(
                 [sys.executable, extractor, self.fin_file],
                 capture_output=True, text=True, check=True
             )
-            raw_file = os.path.abspath('extracted.json')
-            with open(raw_file, 'w') as f:
-                f.write(res.stdout)
+            extracted_data = json.loads(res.stdout)
         except Exception as e:
             QMessageBox.critical(self, 'Extraction Error', str(e))
             return
 
+        # GPT step
         gpt_script = os.path.join(os.path.dirname(__file__), 'GPT.py')
         try:
-            subprocess.run([
+            gpt_proc = subprocess.run([
                 sys.executable, gpt_script,
-                '--data', raw_file,
+                '--data', '-',  # We'll pass data via stdin
                 '--prompt', prompt,
                 '--key', self.api_key
-            ], check=True)
+            ], input=json.dumps(extracted_data), capture_output=True, text=True, check=True)
+            structured_data = json.loads(gpt_proc.stdout)
         except Exception as e:
             QMessageBox.critical(self, 'GPT Error', str(e))
             return
+        except json.JSONDecodeError as e:
+            QMessageBox.critical(self, 'GPT Output Error', f'Output is not valid JSON:\n{e}\n{gpt_proc.stdout}')
+            return
 
-        QMessageBox.information(self, 'Done', 'GPT processing complete.')
+        # Compile directly with imported function
+        output_excel = os.path.abspath('output.xlsx')
+        try:
+            map_to_excel(structured_data, self.tpl_file, output_excel)
+        except Exception as e:
+            QMessageBox.critical(self, 'Compile Error', str(e))
+            return
+
+        # Prompt to open the file
+        reply = QMessageBox.question(
+            self,
+            'Processing complete',
+            f'Excel file created: {output_excel}\n\nOpen now?',
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            self.open_file(output_excel)
+
+    def open_file(self, filepath):
+        if platform.system() == 'Darwin':       # macOS
+            subprocess.run(['open', filepath])
+        elif platform.system() == 'Windows':    # Windows
+            os.startfile(filepath)
+        else:                                   # Linux and others
+            subprocess.run(['xdg-open', filepath])
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

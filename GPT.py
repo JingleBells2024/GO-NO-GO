@@ -65,4 +65,5 @@ if __name__ == "__main__":
     with open(args.data) as f:
         extracted = json.load(f)
     structured_data = extract_with_gpt(extracted, args.prompt, args.key)
+    # Print to stdout so GUI can capture directly
     print(json.dumps(structured_data, indent=2))
