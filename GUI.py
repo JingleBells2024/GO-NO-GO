@@ -2,7 +2,6 @@ import sys
 import os
 import json
 import subprocess
-import shlex
 import re
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
@@ -16,7 +15,7 @@ class FinancialAnalysis(QWidget):
         self.resize(600, 400)
 
         self.fin_file = None
-        self.tpl_file = None
+        self.tpl_file = None  # kept for future, but not used here
         self.api_key = None
 
         layout = QVBoxLayout()
@@ -28,8 +27,8 @@ class FinancialAnalysis(QWidget):
         self.fin_label = QLabel('No financial file selected')
         layout.addWidget(self.fin_label)
 
-        # Template selector
-        btn2 = QPushButton('Upload Excel Template')
+        # Template selector (optional here)
+        btn2 = QPushButton('Upload Excel Template (optional)')
         btn2.clicked.connect(self.upload_template)
         layout.addWidget(btn2)
         self.tpl_label = QLabel('No template selected')
@@ -89,19 +88,18 @@ class FinancialAnalysis(QWidget):
         prompt = self.text_edit.toPlainText().strip()
         self.api_key = self.api_input.text().strip()
 
+        # Validate
         if not self.api_key:
             QMessageBox.warning(self, 'Error', 'Enter API key.')
             return
         if not self.fin_file:
             QMessageBox.warning(self, 'Error', 'Upload a financial file.')
             return
-        if not self.tpl_file:
-            QMessageBox.warning(self, 'Error', 'Upload a template.')
-            return
         if not prompt:
             QMessageBox.warning(self, 'Error', 'Enter a prompt.')
             return
 
+        # Run extractor script
         extractor = os.path.join(os.path.dirname(__file__), 'extract.py')
         try:
             res = subprocess.run(
@@ -115,20 +113,13 @@ class FinancialAnalysis(QWidget):
             QMessageBox.critical(self, 'Extraction Error', str(e))
             return
 
-        m = re.search(r'20\d{2}', prompt)
-        if not m:
-            QMessageBox.warning(self, 'Error', 'Cannot find year in prompt.')
-            return
-        year = m.group(0)
-
+        # Run GPT.py without --template or --year
         gpt_script = os.path.join(os.path.dirname(__file__), 'GPT.py')
         try:
             subprocess.run([
                 sys.executable, gpt_script,
-                '--template', self.tpl_file,
                 '--data', raw_file,
                 '--prompt', prompt,
-                '--year', year,
                 '--key', self.api_key
             ], check=True)
         except Exception as e:
