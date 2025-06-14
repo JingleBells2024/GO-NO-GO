@@ -5,9 +5,8 @@ import openai
 import argparse
 
 def extract_with_gpt(extracted_data: dict, user_prompt: str, api_key: str) -> dict:
-    openai.api_key = api_key
-    
-    # Fixed financial categories expected in output, example data included
+    client = openai.OpenAI(api_key=api_key)
+
     fixed_categories_example = {
         "year": 2024,
         "Revenue": 964021.78,
@@ -29,7 +28,7 @@ def extract_with_gpt(extracted_data: dict, user_prompt: str, api_key: str) -> di
         "Equity": 1000000,
         "Other Income": 0
     }
-    
+
     system_content = (
         "You are a financial data extractor. "
         "Given raw financial data in various forms, map all values into the following fixed categories exactly as named: \n"
@@ -40,14 +39,14 @@ def extract_with_gpt(extracted_data: dict, user_prompt: str, api_key: str) -> di
         "Do not include any percentages or fields not listed. "
         "If a category is missing in the input, set its value to 0."
     )
-    
+
     messages = [
         {"role": "system", "content": system_content},
         {"role": "user", "content": json.dumps(extracted_data)},
         {"role": "user", "content": user_prompt}
     ]
-    
-    resp = openai.ChatCompletion.create(
+
+    resp = client.chat.completions.create(
         model="gpt-4",
         messages=messages,
         temperature=0
@@ -63,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument("--key", required=True, help="OpenAI API key")
     args = parser.parse_args()
 
-    extracted = json.load(open(args.data))
+    with open(args.data) as f:
+        extracted = json.load(f)
     structured_data = extract_with_gpt(extracted, args.prompt, args.key)
-
     print(json.dumps(structured_data, indent=2))
