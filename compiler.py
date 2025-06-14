@@ -18,8 +18,8 @@ def map_to_excel(json_data, excel_path, output_path=None):
     ws = wb.active
 
     # Find where year columns and category rows are
-    year_row_idx = 1  # First row: years
-    cat_col_idx = 1   # First column: categories
+    year_row_idx = 3  # First row: years
+    cat_col_idx = 2   # First column: categories
 
     # Map years to column numbers (accept both number and string keys)
     years = {}
