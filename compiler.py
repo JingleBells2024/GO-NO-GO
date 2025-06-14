@@ -21,30 +21,39 @@ def map_to_excel(json_data, excel_path, output_path=None):
     year_row_idx = 1  # First row: years
     cat_col_idx = 1   # First column: categories
 
-    # Map years to column numbers
+    # Map years to column numbers (accept both number and string keys)
     years = {}
     for col in range(1, ws.max_column + 1):
         val = ws.cell(row=year_row_idx, column=col).value
         if val is not None:
-            years[str(val).strip()] = col
+            # Store both string and int forms as keys for safety
+            key_str = str(val).strip()
+            years[key_str] = col
+            try:
+                key_int = str(int(float(val)))
+                years[key_int] = col
+            except Exception:
+                pass
 
-    # Map categories to row numbers
+    # Map categories to row numbers (accept both number and string keys)
     cats = {}
     for row in range(1, ws.max_row + 1):
         val = ws.cell(row=row, column=cat_col_idx).value
         if val is not None:
-            cats[str(val).strip()] = row
+            key_str = str(val).strip()
+            cats[key_str] = row
 
     for entry in data:
-        yr = str(entry["year"])
+        yr = str(entry["year"]).strip()
         if yr not in years:
             print(f"Year {yr} not found, skipping.")
             continue
         for category, value in entry.items():
             if category == "year":
                 continue
-            if category in cats:
-                ws.cell(row=cats[category], column=years[yr]).value = value
+            key_cat = str(category).strip()
+            if key_cat in cats:
+                ws.cell(row=cats[key_cat], column=years[yr]).value = value
             else:
                 print(f"Category '{category}' not found, skipping.")
 
