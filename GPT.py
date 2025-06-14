@@ -3,6 +3,7 @@ import os
 import json
 import openai
 import argparse
+import sys
 
 def extract_with_gpt(extracted_data: dict, user_prompt: str, api_key: str) -> dict:
     client = openai.OpenAI(api_key=api_key)
@@ -57,13 +58,17 @@ def extract_with_gpt(extracted_data: dict, user_prompt: str, api_key: str) -> di
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", required=True, help="Path to raw-extracted JSON file")
+    parser.add_argument("--data", required=True, help="Path to raw-extracted JSON file or '-' for stdin")
     parser.add_argument("--prompt", required=True, help="User's GPT prompt")
     parser.add_argument("--key", required=True, help="OpenAI API key")
     args = parser.parse_args()
 
-    with open(args.data) as f:
-        extracted = json.load(f)
+    # Support reading input from stdin if --data is '-'
+    if args.data == "-":
+        extracted = json.load(sys.stdin)
+    else:
+        with open(args.data) as f:
+            extracted = json.load(f)
+
     structured_data = extract_with_gpt(extracted, args.prompt, args.key)
-    # Print to stdout so GUI can capture directly
     print(json.dumps(structured_data, indent=2))
