@@ -114,7 +114,7 @@ class FinancialAnalysis(QWidget):
         try:
             gpt_proc = subprocess.run([
                 sys.executable, gpt_script,
-                '--data', '-',  # We'll pass data via stdin
+                '--data', '-',  # Pass data via stdin
                 '--prompt', prompt,
                 '--key', self.api_key
             ], input=json.dumps(extracted_data), capture_output=True, text=True, check=True)
@@ -126,10 +126,9 @@ class FinancialAnalysis(QWidget):
             QMessageBox.critical(self, 'GPT Output Error', f'Output is not valid JSON:\n{e}\n{gpt_proc.stdout}')
             return
 
-        # Compile directly with imported function
-        output_excel = os.path.abspath('output.xlsx')
+        # Compile directly with imported function, overwrite template in place
         try:
-            map_to_excel(structured_data, self.tpl_file, output_excel)
+            map_to_excel(structured_data, self.tpl_file, None)
         except Exception as e:
             QMessageBox.critical(self, 'Compile Error', str(e))
             return
@@ -138,11 +137,11 @@ class FinancialAnalysis(QWidget):
         reply = QMessageBox.question(
             self,
             'Processing complete',
-            f'Excel file created: {output_excel}\n\nOpen now?',
+            f'Excel file updated: {self.tpl_file}\n\nOpen now?',
             QMessageBox.Yes | QMessageBox.No
         )
         if reply == QMessageBox.Yes:
-            self.open_file(output_excel)
+            self.open_file(self.tpl_file)
 
     def open_file(self, filepath):
         if platform.system() == 'Darwin':       # macOS
