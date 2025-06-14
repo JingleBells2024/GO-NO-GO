@@ -7,6 +7,27 @@ def map_to_excel(json_data, excel_path, output_path=None):
     Updates the existing Excel template (preserving formulas, formatting).
     If output_path is None, will overwrite excel_path in place.
     """
+    # Mapping from JSON keys to Excel template category labels
+    category_mapping = {
+        "Revenue": "Reveneue",  # typo in Excel
+        "Cost of Goods Sold (COGS)": "Cost of Goods Sold (COGS)",
+        "Operating Expenses": "Expenses",  # or "Less Operating Expenses" if needed
+        "Depreciation & Amortization": "Plus Depreciation & Amortization",
+        "Plus Interest": "Plus Interest",
+        "Owner Salary+Super": "Plus Owner Salary+Super etc",
+        "Owner Benefits": "Plus Owner Benefits",
+        "Manager Salary": "Manager Salary",
+        "Investor Salary": "Investor Salary",
+        "One off Revenue Adjustments": "One off Revenue Adjustments",
+        "One off Expenses Adjustments": "One off Expenses Adjustments",
+        "Taxes": "Taxes",
+        # These are missing in your template, so will be skipped:
+        # "Assets": "",
+        # "Liabilities": "",
+        # "Equity": "",
+        # "Other Income": "",
+    }
+
     if isinstance(json_data, dict) and "year" in json_data:
         data = [json_data]
     elif isinstance(json_data, list):
@@ -17,16 +38,14 @@ def map_to_excel(json_data, excel_path, output_path=None):
     wb = openpyxl.load_workbook(excel_path)
     ws = wb.active
 
-    # Find where year columns and category rows are
-    year_row_idx = 3  # First row: years
-    cat_col_idx = 2   # First column: categories
+    year_row_idx = 3  # Third row: years
+    cat_col_idx = 2   # Column B: categories
 
     # Map years to column numbers (accept both number and string keys)
     years = {}
     for col in range(1, ws.max_column + 1):
         val = ws.cell(row=year_row_idx, column=col).value
         if val is not None:
-            # Store both string and int forms as keys for safety
             key_str = str(val).strip()
             years[key_str] = col
             try:
@@ -43,6 +62,9 @@ def map_to_excel(json_data, excel_path, output_path=None):
             key_str = str(val).strip()
             cats[key_str] = row
 
+    print("Year columns found:", years)
+    print("Categories found in template:", list(cats.keys()))
+
     for entry in data:
         yr = str(entry["year"]).strip()
         if yr not in years:
@@ -51,13 +73,12 @@ def map_to_excel(json_data, excel_path, output_path=None):
         for category, value in entry.items():
             if category == "year":
                 continue
-            key_cat = str(category).strip()
-            if key_cat in cats:
-                ws.cell(row=cats[key_cat], column=years[yr]).value = value
+            excel_label = category_mapping.get(category, category)
+            if excel_label in cats:
+                ws.cell(row=cats[excel_label], column=years[yr]).value = value
             else:
-                print(f"Category '{category}' not found, skipping.")
+                print(f"Category '{category}' (Excel: '{excel_label}') not found, skipping.")
 
-    # Save (overwrite if output_path is None)
     save_path = output_path if output_path else excel_path
     wb.save(save_path)
     print(f"Saved to {save_path}")
