@@ -119,7 +119,6 @@ class FinancialAnalysis(QWidget):
         try:
             subprocess.run([
                 sys.executable, gpt_script,
-                '--template', self.tpl_file,
                 '--data', raw_file,
                 '--prompt', prompt,
                 '--key', self.api_key
