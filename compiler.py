@@ -1,12 +1,11 @@
 # compiler.py
 
-import pandas as pd
+import openpyxl
 
-def map_to_excel(json_data, excel_path, output_path):
+def map_to_excel(json_data, excel_path, output_path=None):
     """
-    json_data: dict (single year) or list of dicts (multiple years)
-    excel_path: path to input template
-    output_path: path to save filled Excel file
+    Updates the existing Excel template (preserving formulas, formatting).
+    If output_path is None, will overwrite excel_path in place.
     """
     if isinstance(json_data, dict) and "year" in json_data:
         data = [json_data]
@@ -15,35 +14,52 @@ def map_to_excel(json_data, excel_path, output_path):
     else:
         raise ValueError("Invalid JSON data format.")
 
-    df = pd.read_excel(excel_path, engine='openpyxl')
-    header = df.columns.tolist()
-    label_col = df.columns[0]
+    wb = openpyxl.load_workbook(excel_path)
+    ws = wb.active
+
+    # Find where year columns and category rows are
+    year_row_idx = 1  # First row: years
+    cat_col_idx = 1   # First column: categories
+
+    # Map years to column numbers
+    years = {}
+    for col in range(1, ws.max_column + 1):
+        val = ws.cell(row=year_row_idx, column=col).value
+        if val is not None:
+            years[str(val).strip()] = col
+
+    # Map categories to row numbers
+    cats = {}
+    for row in range(1, ws.max_row + 1):
+        val = ws.cell(row=row, column=cat_col_idx).value
+        if val is not None:
+            cats[str(val).strip()] = row
 
     for entry in data:
-        yr = entry["year"]
-        if str(yr) not in header:
-            print(f"Year {yr} not found in columns, skipping.")
+        yr = str(entry["year"])
+        if yr not in years:
+            print(f"Year {yr} not found, skipping.")
             continue
         for category, value in entry.items():
             if category == "year":
                 continue
-            match = df[df[label_col].astype(str).str.strip() == category]
-            if not match.empty:
-                row_idx = match.index[0]
-                df.at[row_idx, str(yr)] = value
+            if category in cats:
+                ws.cell(row=cats[category], column=years[yr]).value = value
             else:
                 print(f"Category '{category}' not found, skipping.")
 
-    df.to_excel(output_path, index=False, engine='openpyxl')
-    print(f"Saved to {output_path}")
+    # Save (overwrite if output_path is None)
+    save_path = output_path if output_path else excel_path
+    wb.save(save_path)
+    print(f"Saved to {save_path}")
 
-# Optional: CLI for testing (but not needed for GUI)
+# Optional CLI usage
 if __name__ == "__main__":
     import argparse, json
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", required=True, help="Extracted JSON file from GPT")
     parser.add_argument("--template", required=True, help="Excel template file")
-    parser.add_argument("--output", required=True, help="Output Excel file")
+    parser.add_argument("--output", help="Output Excel file (leave blank to overwrite)")
     args = parser.parse_args()
 
     with open(args.json) as f:
