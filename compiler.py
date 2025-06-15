@@ -9,9 +9,9 @@ def map_to_excel(json_data, excel_path, output_path=None):
     """
     # Mapping from JSON keys to Excel template category labels
     category_mapping = {
-        "Revenue": "Revenue",  # typo in Excel
+        "Revenue": "Revenue",  # Make sure template matches this spelling
         "Cost of Goods Sold (COGS)": "Cost of Goods Sold (COGS)",
-        "Operating Expenses": "Less Operating Expenses",  # ← correct!
+        "Operating Expenses": "Less Operating Expenses",
         "Depreciation & Amortization": "Plus Depreciation & Amortization",
         "Plus Interest": "Plus Interest",
         "Owner Salary+Super": "Plus Owner Salary+Super etc",
@@ -21,13 +21,15 @@ def map_to_excel(json_data, excel_path, output_path=None):
         "One off Revenue Adjustments": "One off Revenue Adjustments",
         "One off Expenses Adjustments": "One off Expenses Adjustments",
         "Taxes": "Taxes",
-        # These are missing in your template, so will be skipped:
+        # Missing in your template, so will be skipped if present:
         # "Assets": "",
         # "Liabilities": "",
         # "Equity": "",
         # "Other Income": "",
+        "Total add backs": "Total add backs",
     }
 
+    # Accept single object or list of dicts
     if isinstance(json_data, dict) and "year" in json_data:
         data = [json_data]
     elif isinstance(json_data, list):
@@ -41,7 +43,7 @@ def map_to_excel(json_data, excel_path, output_path=None):
     year_row_idx = 3  # Third row: years
     cat_col_idx = 2   # Column B: categories
 
-    # Map years to column numbers (accept both number and string keys)
+    # Map years to column numbers
     years = {}
     for col in range(1, ws.max_column + 1):
         val = ws.cell(row=year_row_idx, column=col).value
@@ -54,7 +56,7 @@ def map_to_excel(json_data, excel_path, output_path=None):
             except Exception:
                 pass
 
-    # Map categories to row numbers (accept both number and string keys)
+    # Map categories to row numbers
     cats = {}
     for row in range(1, ws.max_row + 1):
         val = ws.cell(row=row, column=cat_col_idx).value
