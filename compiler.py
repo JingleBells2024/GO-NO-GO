@@ -11,7 +11,7 @@ def map_to_excel(json_data, excel_path, output_path=None):
     category_mapping = {
         "Revenue": "Reveneue",  # typo in Excel
         "Cost of Goods Sold (COGS)": "Cost of Goods Sold (COGS)",
-        "Operating Expenses": "Expenses",  # or "Less Operating Expenses" if needed
+        "Operating Expenses": "Less Operating Expenses",  # ← correct!
         "Depreciation & Amortization": "Plus Depreciation & Amortization",
         "Plus Interest": "Plus Interest",
         "Owner Salary+Super": "Plus Owner Salary+Super etc",
