@@ -44,7 +44,7 @@ class FinancialAnalysis(QWidget):
         prompt_label = QLabel('GPT Prompt:')
         layout.addWidget(prompt_label)
         self.text_edit = QTextEdit()
-        self.text_edit.setPlaceholderText('Include the year in your prompt, e.g., "Extract all financial fields for 2024..."')
+        self.text_edit.setPlaceholderText('Include the year in your prompt, e.g., \"Extract all financial fields for 2024...\"")
         layout.addWidget(self.text_edit)
 
         submit_btn = QPushButton('Submit')
@@ -120,7 +120,7 @@ class FinancialAnalysis(QWidget):
                 '--key', self.api_key
             ], input=json.dumps(extracted_data), capture_output=True, text=True, check=True)
             structured_data = json.loads(gpt_proc.stdout)
-            self.extracted_data_list.append(structured_data)  # Store in memory
+            self.extracted_data_list.append(structured_data)  # Store in memory, always append!
         except Exception as e:
             QMessageBox.critical(self, 'GPT Error', str(e))
             return
@@ -142,6 +142,8 @@ class FinancialAnalysis(QWidget):
             self.fin_label.setText('No financial file selected')
             # Let the user select and submit another file
         else:
+            # Debug print: check what is in the extracted data list
+            print("Extracted data list:", self.extracted_data_list)
             # Export and open
             output_excel = self.tpl_file  # Overwrite template
             try:
