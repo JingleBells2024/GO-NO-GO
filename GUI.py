@@ -44,7 +44,7 @@ class FinancialAnalysis(QWidget):
         prompt_label = QLabel('GPT Prompt:')
         layout.addWidget(prompt_label)
         self.text_edit = QTextEdit()
-        self.text_edit.setPlaceholderText('Include the year in your prompt, e.g., \"Extract all financial fields for 2024...\"")
+        self.text_edit.setPlaceholderText("Include the year in your prompt, e.g., \"Extract all financial fields for 2024...\"")
         layout.addWidget(self.text_edit)
 
         submit_btn = QPushButton('Submit')
