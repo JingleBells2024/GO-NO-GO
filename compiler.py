@@ -72,14 +72,28 @@ def map_to_excel(json_data, excel_path, output_path=None):
         if yr not in years:
             print(f"Year {yr} not found, skipping.")
             continue
+
         for category, value in entry.items():
             if category == "year":
                 continue
+
             excel_label = category_mapping.get(category, category)
-            if excel_label in cats:
-                ws.cell(row=cats[excel_label], column=years[yr]).value = value
-            else:
+            row = cats.get(excel_label)
+            col = years.get(yr)
+            if not row or not col:
                 print(f"Category '{category}' (Excel: '{excel_label}') not found, skipping.")
+                continue
+
+            cell = ws.cell(row=row, column=col)
+            # Skip if incoming value is None
+            if value is None:
+                continue
+            # If incoming value is zero but cell already has data, leave it untouched
+            if value == 0 and cell.value not in (None, ""):
+                continue
+
+            # Otherwise, write the new value
+            cell.value = value
 
     save_path = output_path if output_path else excel_path
     wb.save(save_path)
