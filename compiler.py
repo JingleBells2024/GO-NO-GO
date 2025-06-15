@@ -9,7 +9,7 @@ def map_to_excel(json_data, excel_path, output_path=None):
     """
     # Mapping from JSON keys to Excel template category labels
     category_mapping = {
-        "Revenue": "Reveneue",  # typo in Excel
+        "Revenue": "Reveeue",  # typo in Excel
         "Cost of Goods Sold (COGS)": "Cost of Goods Sold (COGS)",
         "Operating Expenses": "Less Operating Expenses",  # ← correct!
         "Depreciation & Amortization": "Plus Depreciation & Amortization",
