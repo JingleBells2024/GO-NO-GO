@@ -18,6 +18,7 @@ class FinancialAnalysis(QWidget):
         self.fin_file = None
         self.tpl_file = None
         self.api_key = None
+        self.extracted_data_list = []  # Stores all GPT results
 
         layout = QVBoxLayout()
 
@@ -119,6 +120,7 @@ class FinancialAnalysis(QWidget):
                 '--key', self.api_key
             ], input=json.dumps(extracted_data), capture_output=True, text=True, check=True)
             structured_data = json.loads(gpt_proc.stdout)
+            self.extracted_data_list.append(structured_data)  # Store in memory
         except Exception as e:
             QMessageBox.critical(self, 'GPT Error', str(e))
             return
@@ -126,22 +128,37 @@ class FinancialAnalysis(QWidget):
             QMessageBox.critical(self, 'GPT Output Error', f'Output is not valid JSON:\n{e}\n{gpt_proc.stdout}')
             return
 
-        # Compile directly with imported function, overwrite template in place
-        try:
-            map_to_excel(structured_data, self.tpl_file, None)
-        except Exception as e:
-            QMessageBox.critical(self, 'Compile Error', str(e))
-            return
-
-        # Prompt to open the file
+        # Prompt user: upload more or open doc
         reply = QMessageBox.question(
             self,
-            'Processing complete',
-            f'Excel file updated: {self.tpl_file}\n\nOpen now?',
+            'Batch Finished',
+            "File processed. Would you like to upload more financial files?\n\n"
+            "Choose 'Yes' to process another file, or 'No' to export and open the completed Excel document.",
             QMessageBox.Yes | QMessageBox.No
         )
+
         if reply == QMessageBox.Yes:
-            self.open_file(self.tpl_file)
+            self.fin_file = None
+            self.fin_label.setText('No financial file selected')
+            # Let the user select and submit another file
+        else:
+            # Export and open
+            output_excel = self.tpl_file  # Overwrite template
+            try:
+                map_to_excel(self.extracted_data_list, self.tpl_file, None)
+            except Exception as e:
+                QMessageBox.critical(self, 'Compile Error', str(e))
+                return
+            open_reply = QMessageBox.question(
+                self,
+                'Processing complete',
+                f'Excel file updated: {output_excel}\n\nOpen now?',
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if open_reply == QMessageBox.Yes:
+                self.open_file(output_excel)
+            # Optionally reset for a new batch
+            self.extracted_data_list = []
 
     def open_file(self, filepath):
         if platform.system() == 'Darwin':       # macOS
