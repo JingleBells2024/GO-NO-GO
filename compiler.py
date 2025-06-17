@@ -5,7 +5,6 @@ import json
 import argparse
 import openai
 
-# ---------- Excel Integration ----------
 import openpyxl
 
 def map_to_excel(json_data, excel_path, output_path=None):
@@ -51,6 +50,17 @@ def map_to_excel(json_data, excel_path, output_path=None):
     print("Year columns found:", years)
     print("Categories found in template:", list(cats.keys()))
 
+    # Category mapping for spreadsheet
+    category_mapping = {
+        "Revenue": "Revenue",
+        "Cost of Goods Sold (COGS)": "Cost of Goods Sold (COGS)",
+        "Operating Expenses": "Operating Expenses",
+        "Other Income": "Other Income",
+        "Plus Owner Salary+Super etc": "Plus Owner Salary+Super etc",
+        "Plus Owner Benefits": "Plus Owner Benefits",
+        "Total add backs": "Total add backs"
+    }
+
     for entry in data:
         yr = str(entry["year"]).strip()
         if yr not in years:
@@ -60,17 +70,19 @@ def map_to_excel(json_data, excel_path, output_path=None):
         for category, value in entry.items():
             if category == "year":
                 continue
-            row = cats.get(category)
+            excel_cat = category_mapping.get(category)
+            if not excel_cat:
+                print(f"Category '{category}' not in mapping, skipping.")
+                continue
+            row = cats.get(excel_cat)
             col = years.get(yr)
             if not row or not col:
-                print(f"Category '{category}' not found, skipping.")
+                print(f"Category '{category}' (mapped to '{excel_cat}') or year {yr} not found, skipping.")
                 continue
 
             cell = ws.cell(row=row, column=col)
-            # Skip if incoming value is None
             if value is None:
                 continue
-            # If incoming value is zero but cell already has data, leave it untouched
             if value == 0 and cell.value not in (None, ""):
                 continue
             cell.value = value
@@ -79,37 +91,25 @@ def map_to_excel(json_data, excel_path, output_path=None):
     wb.save(save_path)
     print(f"Saved to {save_path}")
 
-# ---------- GPT Extraction ----------
 def extract_with_gpt(extracted_data: dict, user_prompt: str, api_key: str) -> dict:
     client = openai.OpenAI(api_key=api_key)
 
+    # Categories must match the spreadsheet template labels exactly:
     fixed_categories_example = {
         "year": 2024,
         "Revenue": 964021.78,
         "Cost of Goods Sold (COGS)": 156873.40,
         "Operating Expenses": 311169.35,
-        "Taxes": 30000,
-        "Depreciation & Amortization": 20000,
-        "Plus Interest": 0,
-        "Owner Salary+Super": 50000,
-        "Owner Benefits": 200000,
-        "Manager Salary": 105000,
-        "Investor Salary": 70000,
-        "One off Revenue Adjustments": 0,
-        "One off Expenses Adjustments": 0,
-        "Other Adjustments 1": 0,
-        "Other Adjustments 2": 0,
-        "Assets": 1234567.89,
-        "Liabilities": 234567.89,
-        "Equity": 1000000,
-        "Other Income": 0
+        "Other Income": 0,
+        "Plus Owner Salary+Super etc": 50000,
+        "Plus Owner Benefits": 200000,
+        "Total add backs": 0
     }
 
     system_content = (
         "You are a financial data extractor. "
         "Given raw financial data in various forms, map all values into the following fixed categories exactly as named: \n"
         + json.dumps(fixed_categories_example, indent=2) + "\n"
-        "You must interpret synonyms and variations in labels to fit these categories. "
         "Return ONLY a JSON object or list of objects containing these categories and their numeric values. "
         "Include the year as the 'year' key. "
         "Do not include any percentages or fields not listed. "
@@ -148,7 +148,6 @@ def extract_with_gpt(extracted_data: dict, user_prompt: str, api_key: str) -> di
         sys.exit(1)
     return values
 
-# ---------- CLI Entrypoint ----------
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", required=True, help="Path to raw-extracted JSON file or '-' for stdin")
