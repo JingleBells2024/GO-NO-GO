@@ -11,33 +11,22 @@ except ImportError:
 
 def extract_excel(path):
     wb = load_workbook(path, data_only=True)
-    out = {}
+    result = []
     for name in wb.sheetnames:
         ws = wb[name]
-        out[name] = [list(row) for row in ws.iter_rows(values_only=True)]
-    return out
+        for row in ws.iter_rows(values_only=True):
+            result.append([cell if cell is not None else "" for cell in row])
+    return result
 
 def extract_pdf(path):
     if not _PDF_OK:
         sys.exit("Install PyPDF2 (`pip install PyPDF2`) to extract PDF")
     reader = PdfReader(path)
-    all_text = "\n\n".join((p.extract_text() or "").strip() for p in reader.pages)
-    instruction = (
-        "Below is a financial summary. Extract the numbers for each year and output them as a JSON array. "
-        "Each array element should have these keys, in this order: year, Revenue, Cost of Goods Sold (COGS), "
-        "Operating Expenses, Taxes, Depreciation & Amortization, Plus Interest, Owner Salary+Super, "
-        "Owner Benefits, Manager Salary, Investor Salary, One off Revenue Adjustments, One off Expenses Adjustments, "
-        "Other Adjustments 1, Other Adjustments 2, Assets, Liabilities, Equity, Other Income, Total add backs. "
-        "If a value is missing for a year, use 0. Do not add, remove, or infer categories. "
-        "Output ONLY the JSON array—no explanation."
-    )
-    return {
-        "instructions": instruction,
-        "data": all_text
-    }
+    text = "\n\n".join((p.extract_text() or "").strip() for p in reader.pages)
+    return text
 
 def main():
-    p = argparse.ArgumentParser(description="Extract data from PDF or Excel")
+    p = argparse.ArgumentParser(description="Extract text or tables from PDF or Excel")
     p.add_argument("file", help="Path to .pdf or .xlsx file")
     args = p.parse_args()
 
@@ -52,14 +41,17 @@ def main():
     else:
         sys.exit("Unsupported file type. Use .pdf or .xlsx")
 
-    # Write the extracted data to extracted_data.json in the current working directory
-    out_path = os.path.join(os.getcwd(), "extracted_data.json")
-    with open(out_path, "w") as f:
-        json.dump(data, f, indent=2, default=str)
-    print(f"Extracted data saved to {out_path}")
+    # Write output to a plain file: .txt for PDF, .json for Excel
+    if ext == ".pdf":
+        out_path = os.path.join(os.getcwd(), "extracted_data.txt")
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(data)
+    else:
+        out_path = os.path.join(os.getcwd(), "extracted_data.json")
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
 
-    # Also print to console
-    print(json.dumps(data, indent=2, default=str))
+    print(f"Extracted data saved to {out_path}")
 
 if __name__ == "__main__":
     main()
