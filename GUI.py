@@ -18,7 +18,7 @@ class FinancialAnalysis(QWidget):
         self.fin_file = None
         self.tpl_file = None
         self.api_key = None
-        self.extracted_data_list = []  # Stores all GPT results
+        self.extracted_data_list = []
 
         layout = QVBoxLayout()
 
@@ -98,34 +98,49 @@ class FinancialAnalysis(QWidget):
             QMessageBox.warning(self, 'Error', 'Enter a prompt.')
             return
 
-        # Extraction step
+        # Extraction step: always output to extracted_data.json
         extractor = os.path.join(os.path.dirname(__file__), 'extract.py')
+        extracted_json_path = os.path.join(os.getcwd(), 'extracted_data.json')
         try:
-            res = subprocess.run(
-                [sys.executable, extractor, self.fin_file],
-                capture_output=True, text=True, check=True
+            subprocess.run(
+                [sys.executable, extractor, self.fin_file, "-o", extracted_json_path],
+                check=True, capture_output=True, text=True
             )
-            extracted_data = json.loads(res.stdout)
+            if not os.path.isfile(extracted_json_path):
+                raise Exception("Extracted file not created.")
+            with open(extracted_json_path) as f:
+                extracted_data = json.load(f)
+            if not extracted_data:
+                raise Exception("Extracted data is empty.")
         except Exception as e:
             QMessageBox.critical(self, 'Extraction Error', str(e))
             return
 
-        # GPT step
+        # Save prompt as .txt and data as .json, send both to GPT script
         gpt_script = os.path.join(os.path.dirname(__file__), 'GPT.py')
+        gpt_output_path = os.path.join(os.getcwd(), 'GPT_output.json')
+        prompt_txt_path = os.path.join(os.getcwd(), 'user_prompt.txt')
+        with open(prompt_txt_path, "w") as f:
+            f.write(prompt)
+
         try:
             gpt_proc = subprocess.run([
                 sys.executable, gpt_script,
-                '--data', '-',  # Pass data via stdin
-                '--prompt', prompt,
-                '--key', self.api_key
-            ], input=json.dumps(extracted_data), capture_output=True, text=True, check=True)
-            structured_data = json.loads(gpt_proc.stdout)
-            self.extracted_data_list.append(structured_data)  # Store in memory, always append!
+                "--data", extracted_json_path,
+                "--prompt", prompt_txt_path,
+                "--key", self.api_key
+            ], capture_output=True, text=True, check=True)
+            # GPT.py should output JSON to GPT_output.json
+            if not os.path.isfile(gpt_output_path):
+                raise Exception("GPT did not produce output.")
+            with open(gpt_output_path) as f:
+                structured_data = json.load(f)
+            self.extracted_data_list.append(structured_data)
         except Exception as e:
             QMessageBox.critical(self, 'GPT Error', str(e))
             return
         except json.JSONDecodeError as e:
-            QMessageBox.critical(self, 'GPT Output Error', f'Output is not valid JSON:\n{e}\n{gpt_proc.stdout}')
+            QMessageBox.critical(self, 'GPT Output Error', f'Output is not valid JSON:\n{e}')
             return
 
         # Prompt user: upload more or open doc
@@ -140,12 +155,9 @@ class FinancialAnalysis(QWidget):
         if reply == QMessageBox.Yes:
             self.fin_file = None
             self.fin_label.setText('No financial file selected')
-            # Let the user select and submit another file
         else:
-            # Debug print: check what is in the extracted data list
             print("Extracted data list:", self.extracted_data_list)
-            # Export and open
-            output_excel = self.tpl_file  # Overwrite template
+            output_excel = self.tpl_file
             try:
                 map_to_excel(self.extracted_data_list, self.tpl_file, None)
             except Exception as e:
@@ -159,7 +171,6 @@ class FinancialAnalysis(QWidget):
             )
             if open_reply == QMessageBox.Yes:
                 self.open_file(output_excel)
-            # Optionally reset for a new batch
             self.extracted_data_list = []
 
     def open_file(self, filepath):
