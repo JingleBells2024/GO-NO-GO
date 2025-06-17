@@ -43,6 +43,13 @@ def main():
     else:
         sys.exit("Unsupported file type. Use .pdf or .xlsx")
 
+    # Write the extracted data to extracted_data.json in the repo (current working) directory
+    out_path = os.path.join(os.getcwd(), "extracted_data.json")
+    with open(out_path, "w") as f:
+        json.dump(data, f, indent=2, default=str)
+    print(f"Extracted data saved to {out_path}")
+
+    # Also print to console as before
     print(json.dumps(data, indent=2, default=str))
 
 if __name__ == "__main__":
