@@ -7,28 +7,6 @@ def map_to_excel(json_data, excel_path, output_path=None):
     Updates the existing Excel template (preserving formulas, formatting).
     If output_path is None, will overwrite excel_path in place.
     """
-    # Mapping from JSON keys to Excel template category labels
-    category_mapping = {
-        "Revenue": "Revenue",  # Make sure template matches this spelling
-        "Cost of Goods Sold (COGS)": "Cost of Goods Sold (COGS)",
-        "Operating Expenses": "Less Operating Expenses",
-        "Depreciation & Amortization": "Plus Depreciation & Amortization",
-        "Plus Interest": "Plus Interest",
-        "Owner Salary+Super": "Plus Owner Salary+Super etc",
-        "Owner Benefits": "Plus Owner Benefits",
-        "Manager Salary": "Manager Salary",
-        "Investor Salary": "Investor Salary",
-        "One off Revenue Adjustments": "One off Revenue Adjustments",
-        "One off Expenses Adjustments": "One off Expenses Adjustments",
-        "Taxes": "Taxes",
-        # Missing in your template, so will be skipped if present:
-        # "Assets": "",
-        # "Liabilities": "",
-        # "Equity": "",
-        # "Other Income": "",
-        "Total add backs": "Total add backs",
-    }
-
     # Accept single object or list of dicts
     if isinstance(json_data, dict) and "year" in json_data:
         data = [json_data]
@@ -77,11 +55,10 @@ def map_to_excel(json_data, excel_path, output_path=None):
             if category == "year":
                 continue
 
-            excel_label = category_mapping.get(category, category)
-            row = cats.get(excel_label)
+            row = cats.get(category)
             col = years.get(yr)
             if not row or not col:
-                print(f"Category '{category}' (Excel: '{excel_label}') not found, skipping.")
+                print(f"Category '{category}' not found, skipping.")
                 continue
 
             cell = ws.cell(row=row, column=col)
