@@ -124,7 +124,7 @@ class FinancialAnalysis(QWidget):
             gpt_proc = subprocess.run([
                 sys.executable, gpt_script,
                 "--data", extracted_json_path,
-                "--prompt", prompt,    # <--- Send prompt string, not file name
+                "--prompt", prompt,    # Send prompt string, not file name
                 "--key", self.api_key
             ], capture_output=True, text=True, check=True)
             # GPT.py should output JSON to GPT_output.json
@@ -132,7 +132,11 @@ class FinancialAnalysis(QWidget):
                 raise Exception("GPT did not produce output.")
             with open(gpt_output_path) as f:
                 structured_data = json.load(f)
-            self.extracted_data_list.append(structured_data)
+            # ---- FLATTEN the data ----
+            if isinstance(structured_data, list):
+                self.extracted_data_list.extend(structured_data)
+            else:
+                self.extracted_data_list.append(structured_data)
         except Exception as e:
             QMessageBox.critical(self, 'GPT Error', str(e))
             return
