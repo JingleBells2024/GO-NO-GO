@@ -95,16 +95,17 @@ def extract_with_gpt(extracted_data: dict, user_prompt: str, api_key: str) -> di
     client = openai.OpenAI(api_key=api_key)
 
     # Categories must match the spreadsheet template labels exactly:
-    fixed_categories_example = {
-        "year": 2024,
-        "Revenue": 964021.78,
-        "Cost of Goods Sold (COGS)": 156873.40,
-        "Operating Expenses": 311169.35,
-        "Other Income": 0,
-        "Plus Owner Salary+Super etc": 50000,
-        "Plus Owner Benefits": 200000,
-        "Total add backs": 0
-    }
+    fixed_categories_example = category_mapping = {
+    "Revenue": "Revenue",
+    "Cost of Goods Sold (COGS)": "Cost of Goods Sold (COGS)",
+    "Operating Expenses": "Less Operating Expenses",
+    "Other Income": "Other Income",
+    "Owner Salary+Super": "Plus Owner Salary+Super etc",
+    "Plus Owner Salary+Super etc": "Plus Owner Salary+Super etc",
+    "Owner Benefits": "Plus Owner Benefits",
+    "Plus Owner Benefits": "Plus Owner Benefits",
+    "Total add backs": "Total add backs"
+}
 
     system_content = (
         "You are a financial data extractor. "
