@@ -116,18 +116,15 @@ class FinancialAnalysis(QWidget):
             QMessageBox.critical(self, 'Extraction Error', str(e))
             return
 
-        # Save prompt as .txt and data as .json, send both to GPT script
+        # Send actual prompt string (not a file) to GPT.py
         gpt_script = os.path.join(os.path.dirname(__file__), 'GPT.py')
         gpt_output_path = os.path.join(os.getcwd(), 'GPT_output.json')
-        prompt_txt_path = os.path.join(os.getcwd(), 'user_prompt.txt')
-        with open(prompt_txt_path, "w") as f:
-            f.write(prompt)
 
         try:
             gpt_proc = subprocess.run([
                 sys.executable, gpt_script,
                 "--data", extracted_json_path,
-                "--prompt", prompt_txt_path,
+                "--prompt", prompt,    # <--- Send prompt string, not file name
                 "--key", self.api_key
             ], capture_output=True, text=True, check=True)
             # GPT.py should output JSON to GPT_output.json
