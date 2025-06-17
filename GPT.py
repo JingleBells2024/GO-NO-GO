@@ -41,6 +41,14 @@ def extract_with_gpt(extracted_data: dict, user_prompt: str, api_key: str) -> di
         "If a category is missing in the input, set its value to 0."
     )
 
+    print("\n--- INPUT SCHEMA TO GPT (extracted_data) ---")
+    print(json.dumps(extracted_data, indent=2))
+    print("\n--- SYSTEM PROMPT (Categories) ---")
+    print(json.dumps(fixed_categories_example, indent=2))
+    print("\n--- USER PROMPT ---")
+    print(user_prompt)
+    print("\n--- SENDING TO GPT... ---\n")
+
     messages = [
         {"role": "system", "content": system_content},
         {"role": "user", "content": json.dumps(extracted_data)},
@@ -53,6 +61,8 @@ def extract_with_gpt(extracted_data: dict, user_prompt: str, api_key: str) -> di
         temperature=0
     )
     body = resp.choices[0].message.content.strip()
+    print("--- RAW GPT RESPONSE ---")
+    print(body)
     values = json.loads(body)
     return values
 
@@ -71,4 +81,5 @@ if __name__ == "__main__":
             extracted = json.load(f)
 
     structured_data = extract_with_gpt(extracted, args.prompt, args.key)
+    print("\n--- FINAL STRUCTURED OUTPUT ---")
     print(json.dumps(structured_data, indent=2))
