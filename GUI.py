@@ -5,7 +5,7 @@ import subprocess
 import platform
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
-    QTextEdit, QFileDialog, QMessageBox, QLabel, QLineEdit
+    QFileDialog, QMessageBox, QLabel, QLineEdit
 )
 from compiler import map_to_excel  # Import as a function
 
@@ -15,17 +15,17 @@ class FinancialAnalysis(QWidget):
         self.setWindowTitle('Financial Analysis')
         self.resize(600, 400)
 
-        self.fin_file = None
+        self.fin_files = []
         self.tpl_file = None
         self.api_key = None
         self.extracted_data_list = []
 
         layout = QVBoxLayout()
 
-        btn1 = QPushButton('Upload Financial PDF/Excel')
+        btn1 = QPushButton('Upload Financial Files')
         btn1.clicked.connect(self.upload_financial)
         layout.addWidget(btn1)
-        self.fin_label = QLabel('No financial file selected')
+        self.fin_label = QLabel('No financial files selected')
         layout.addWidget(self.fin_label)
 
         btn2 = QPushButton('Upload Excel Template')
@@ -41,30 +41,24 @@ class FinancialAnalysis(QWidget):
         self.api_input.setPlaceholderText('sk-...')
         layout.addWidget(self.api_input)
 
-        prompt_label = QLabel('GPT Prompt:')
-        layout.addWidget(prompt_label)
-        self.text_edit = QTextEdit()
-        self.text_edit.setPlaceholderText("Include the year in your prompt, e.g., \"Extract all financial fields for 2024...\"")
-        layout.addWidget(self.text_edit)
-
-        submit_btn = QPushButton('Submit')
-        submit_btn.clicked.connect(self.submit)
-        layout.addWidget(submit_btn)
+        extract_btn = QPushButton('Extract Data')
+        extract_btn.clicked.connect(self.extract_data)
+        layout.addWidget(extract_btn)
 
         self.setLayout(layout)
 
     def upload_financial(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, 'Choose Financial File',
-            filter='PDF Files (*.pdf);;Excel Files (*.xlsx *.xlsm)'
+        files, _ = QFileDialog.getOpenFileNames(
+            self, 'Choose Financial Files',
+            filter='All Files (*.pdf *.xlsx *.xlsm *.jpg *.png)'
         )
-        if path:
-            self.fin_file = path
-            self.fin_label.setText(os.path.basename(path))
+        if files:
+            self.fin_files = files
+            self.fin_label.setText(', '.join([os.path.basename(f) for f in files]))
             self.fin_label.setStyleSheet('color: green')
         else:
-            self.fin_file = None
-            self.fin_label.setText('No financial file selected')
+            self.fin_files = []
+            self.fin_label.setText('No financial files selected')
             self.fin_label.setStyleSheet('color: red')
 
     def upload_template(self):
@@ -81,97 +75,79 @@ class FinancialAnalysis(QWidget):
             self.tpl_label.setText('No template selected')
             self.tpl_label.setStyleSheet('color: red')
 
-    def submit(self):
-        prompt = self.text_edit.toPlainText().strip()
+    def extract_data(self):
         self.api_key = self.api_input.text().strip()
-
         if not self.api_key:
             QMessageBox.warning(self, 'Error', 'Enter API key.')
             return
-        if not self.fin_file:
-            QMessageBox.warning(self, 'Error', 'Upload a financial file.')
-            return
-        if not self.tpl_file:
-            QMessageBox.warning(self, 'Error', 'Upload a template.')
-            return
-        if not prompt:
-            QMessageBox.warning(self, 'Error', 'Enter a prompt.')
+        if not self.fin_files:
+            QMessageBox.warning(self, 'Error', 'Upload at least one financial file.')
             return
 
-        # Extraction step: always output to extracted_data.json
         extractor = os.path.join(os.path.dirname(__file__), 'extract.py')
-        extracted_json_path = os.path.join(os.getcwd(), 'extracted_data.json')
+        txt_path = os.path.join(os.getcwd(), 'gpt4o_extracted.txt')
+        json_path = os.path.join(os.getcwd(), 'gpt4o_extracted.json')
+
+        # Run extract.py with all files and the API key
+        args = [
+            sys.executable, extractor,
+            '--key', self.api_key,
+            '--files', *self.fin_files
+        ]
         try:
-            subprocess.run(
-                [sys.executable, extractor, self.fin_file, "-o", extracted_json_path],
-                check=True, capture_output=True, text=True
-            )
-            if not os.path.isfile(extracted_json_path):
-                raise Exception("Extracted file not created.")
-            with open(extracted_json_path) as f:
-                extracted_data = json.load(f)
-            if not extracted_data:
-                raise Exception("Extracted data is empty.")
+            subprocess.run(args, check=True)
         except Exception as e:
             QMessageBox.critical(self, 'Extraction Error', str(e))
             return
 
-        # Send actual prompt string (not a file) to GPT.py
-        gpt_script = os.path.join(os.path.dirname(__file__), 'GPT.py')
-        gpt_output_path = os.path.join(os.getcwd(), 'GPT_output.json')
-
-        try:
-            gpt_proc = subprocess.run([
-                sys.executable, gpt_script,
-                "--data", extracted_json_path,
-                "--prompt", prompt,    # Send prompt string, not file name
-                "--key", self.api_key
-            ], capture_output=True, text=True, check=True)
-            # GPT.py should output JSON to GPT_output.json
-            if not os.path.isfile(gpt_output_path):
-                raise Exception("GPT did not produce output.")
-            with open(gpt_output_path) as f:
-                structured_data = json.load(f)
-            # ---- FLATTEN the data ----
-            if isinstance(structured_data, list):
-                self.extracted_data_list.extend(structured_data)
-            else:
-                self.extracted_data_list.append(structured_data)
-        except Exception as e:
-            QMessageBox.critical(self, 'GPT Error', str(e))
-            return
-        except json.JSONDecodeError as e:
-            QMessageBox.critical(self, 'GPT Output Error', f'Output is not valid JSON:\n{e}')
+        # Check for the output files
+        if not os.path.isfile(txt_path) or not os.path.isfile(json_path):
+            QMessageBox.critical(self, 'Extraction Error', 'Extraction did not produce output files.')
             return
 
-        # Prompt user: upload more or open doc
+        # Prompt user: download as txt, or submit to Excel output
         reply = QMessageBox.question(
             self,
-            'Batch Finished',
-            "File processed. Would you like to upload more financial files?\n\n"
-            "Choose 'Yes' to process another file, or 'No' to export and open the completed Excel document.",
-            QMessageBox.Yes | QMessageBox.No
+            'Extraction Complete',
+            "Data extracted.\n\nWould you like to download the summary as a text file, or submit for Excel processing?",
+            QMessageBox.Save | QMessageBox.Apply,
+            QMessageBox.Apply
         )
-
-        if reply == QMessageBox.Yes:
-            self.fin_file = None
-            self.fin_label.setText('No financial file selected')
+        if reply == QMessageBox.Save:
+            self.open_file(txt_path)
         else:
-            print("Extracted data list:", self.extracted_data_list)
-            output_excel = self.tpl_file
+            if not self.tpl_file:
+                QMessageBox.warning(self, 'Error', 'No Excel template selected.')
+                return
+            # Load the JSON output
+            try:
+                with open(json_path) as f:
+                    data = json.load(f)
+                # Accept both single dict or list of dicts
+                if isinstance(data, dict):
+                    self.extracted_data_list.append(data)
+                elif isinstance(data, list):
+                    self.extracted_data_list.extend(data)
+                else:
+                    raise Exception("Extracted JSON is not dict or list.")
+            except Exception as e:
+                QMessageBox.critical(self, 'Data Error', f'Problem loading extracted data: {e}')
+                return
+
             try:
                 map_to_excel(self.extracted_data_list, self.tpl_file, None)
             except Exception as e:
                 QMessageBox.critical(self, 'Compile Error', str(e))
                 return
+
             open_reply = QMessageBox.question(
                 self,
                 'Processing complete',
-                f'Excel file updated: {output_excel}\n\nOpen now?',
+                f'Excel file updated: {self.tpl_file}\n\nOpen now?',
                 QMessageBox.Yes | QMessageBox.No
             )
             if open_reply == QMessageBox.Yes:
-                self.open_file(output_excel)
+                self.open_file(self.tpl_file)
             self.extracted_data_list = []
 
     def open_file(self, filepath):
