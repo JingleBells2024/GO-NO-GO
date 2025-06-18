@@ -8,30 +8,16 @@ import sys
 def extract_with_gpt(extracted_data, user_prompt, api_key):
     client = openai.OpenAI(api_key=api_key)
 
-    # Use your *actual* fixed categories as an example for clarity in the system prompt.
     fixed_categories_example = {
         "year": 2024,
         "Revenue": 964021.78,
         "Cost of Goods Sold (COGS)": 156873.40,
-        "Operating Expenses": 311169.35,
-        "Taxes": 30000,
-        "Depreciation & Amortization": 20000,
-        "Plus Interest": 0,
-        "Owner Salary+Super": 50000,
-        "Owner Benefits": 200000,
-        "Manager Salary": 105000,
-        "Investor Salary": 70000,
-        "One off Revenue Adjustments": 0,
-        "One off Expenses Adjustments": 0,
-        "Other Adjustments 1": 0,
-        "Other Adjustments 2": 0,
-        "Assets": 1234567.89,
-        "Liabilities": 234567.89,
-        "Equity": 1000000,
-        "Other Income": 0,
-        "Total add backs": 0
+        "Less Operating Expenses": 311169.35,
+        "Other Income": 47252.79,
+        "Plus Owner Salary+Super etc": 116923,
+        "Plus Owner Benefits": 7251,
+        "Total add backs": 142230
     }
-
     system_content = (
         "You are a financial data extractor. "
         "Given structured financial data, return ONLY a JSON array of yearly records, each using these exact keys:\n"
