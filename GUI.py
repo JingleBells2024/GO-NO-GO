@@ -5,7 +5,7 @@ import subprocess
 import platform
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
-    QFileDialog, QMessageBox, QLabel, QLineEdit
+    QFileDialog, QMessageBox, QLabel, QLineEdit, QTextEdit
 )
 from compiler import map_to_excel  # Import as a function
 
@@ -13,7 +13,7 @@ class FinancialAnalysis(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Financial Analysis')
-        self.resize(600, 400)
+        self.resize(700, 500)
 
         self.fin_files = []
         self.tpl_file = None
@@ -40,6 +40,30 @@ class FinancialAnalysis(QWidget):
         self.api_input.setEchoMode(QLineEdit.Password)
         self.api_input.setPlaceholderText('sk-...')
         layout.addWidget(self.api_input)
+
+        prompt_label = QLabel('Enter Extraction Prompt (you can leave this as default, or customize):')
+        layout.addWidget(prompt_label)
+        self.prompt_input = QTextEdit()
+        self.prompt_input.setText(
+            "Instructions:\n"
+            "I am uploading several financial documents.\n"
+            "Please extract all relevant yearly financial data and summarize it in this exact text format, for every year present in the documents:\n\n"
+            "2022\n"
+            "• Revenue:\n"
+            "• Cost of Goods Sold (COGS):\n"
+            "• Less Operating Expenses:\n"
+            "• Other Income:\n"
+            "• Plus Owner Salary+Super etc:\n"
+            "• Plus Owner Benefits:\n"
+            "• Total add backs:\n"
+            "2023\n"
+            "(and so on for each year...)\n\n"
+            "If any value is missing, set it to 0.\n"
+            "Use exactly these categories and wording for each year.\n"
+            "Do not add or remove any fields.\n"
+            "Do not provide explanations, just the formatted text."
+        )
+        layout.addWidget(self.prompt_input)
 
         extract_btn = QPushButton('Extract Data')
         extract_btn.clicked.connect(self.extract_data)
@@ -77,19 +101,25 @@ class FinancialAnalysis(QWidget):
 
     def extract_data(self):
         self.api_key = self.api_input.text().strip()
+        prompt = self.prompt_input.toPlainText().strip()
         if not self.api_key:
             QMessageBox.warning(self, 'Error', 'Enter API key.')
             return
         if not self.fin_files:
             QMessageBox.warning(self, 'Error', 'Upload at least one financial file.')
             return
+        if not prompt:
+            QMessageBox.warning(self, 'Error', 'Enter an extraction prompt.')
+            return
 
         extractor = os.path.join(os.path.dirname(__file__), 'extract.py')
         json_path = os.path.join(os.getcwd(), 'gpt4o_extracted.json')
 
+        # Pass prompt to extract.py (add --prompt)
         args = [
             sys.executable, extractor,
             '--key', self.api_key,
+            '--prompt', prompt,
             *self.fin_files
         ]
         try:
@@ -98,12 +128,10 @@ class FinancialAnalysis(QWidget):
             QMessageBox.critical(self, 'Extraction Error', str(e))
             return
 
-        # Check for only the JSON output file
         if not os.path.isfile(json_path):
-            QMessageBox.critical(self, 'Extraction Error', 'Extraction did not produce output files.')
+            QMessageBox.critical(self, 'Extraction Error', 'Extraction did not produce output file.')
             return
 
-        # Skip "download summary as text" logic
         if not self.tpl_file:
             QMessageBox.warning(self, 'Error', 'No Excel template selected.')
             return
