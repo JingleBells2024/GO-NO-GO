@@ -44,25 +44,6 @@ class FinancialAnalysis(QWidget):
         prompt_label = QLabel('Enter Extraction Prompt (you can leave this as default, or customize):')
         layout.addWidget(prompt_label)
         self.prompt_input = QTextEdit()
-        self.prompt_input.setText(
-            "Instructions:\n"
-            "I am uploading several financial documents.\n"
-            "Please extract all relevant yearly financial data and summarize it in this exact text format, for every year present in the documents:\n\n"
-            "2022\n"
-            "• Revenue:\n"
-            "• Cost of Goods Sold (COGS):\n"
-            "• Less Operating Expenses:\n"
-            "• Other Income:\n"
-            "• Plus Owner Salary+Super etc:\n"
-            "• Plus Owner Benefits:\n"
-            "• Total add backs:\n"
-            "2023\n"
-            "(and so on for each year...)\n\n"
-            "If any value is missing, set it to 0.\n"
-            "Use exactly these categories and wording for each year.\n"
-            "Do not add or remove any fields.\n"
-            "Do not provide explanations, just the formatted text."
-        )
         layout.addWidget(self.prompt_input)
 
         extract_btn = QPushButton('Extract Data')
