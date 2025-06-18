@@ -4,6 +4,7 @@ import os
 import argparse
 import openai
 import io
+import base64
 from pdf2image import convert_from_path
 from PIL import Image
 
@@ -44,7 +45,7 @@ def call_gpt4o_vision(api_key, images, prompt):
     content = [{"type": "text", "text": prompt}]
     for img_buf in images:
         img_buf.seek(0)
-        b64_img = openai._utils._to_base64(img_buf.read())
+        b64_img = base64.b64encode(img_buf.read()).decode('utf-8')
         content.append({
             "type": "image_url",
             "image_url": {
