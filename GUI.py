@@ -85,10 +85,8 @@ class FinancialAnalysis(QWidget):
             return
 
         extractor = os.path.join(os.path.dirname(__file__), 'extract.py')
-        txt_path = os.path.join(os.getcwd(), 'gpt4o_extracted.txt')
         json_path = os.path.join(os.getcwd(), 'gpt4o_extracted.json')
 
-        # Corrected: no --files flag
         args = [
             sys.executable, extractor,
             '--key', self.api_key,
@@ -100,52 +98,43 @@ class FinancialAnalysis(QWidget):
             QMessageBox.critical(self, 'Extraction Error', str(e))
             return
 
-        # Check for the output files
-        if not os.path.isfile(txt_path) or not os.path.isfile(json_path):
+        # Check for only the JSON output file
+        if not os.path.isfile(json_path):
             QMessageBox.critical(self, 'Extraction Error', 'Extraction did not produce output files.')
             return
 
-        reply = QMessageBox.question(
+        # Skip "download summary as text" logic
+        if not self.tpl_file:
+            QMessageBox.warning(self, 'Error', 'No Excel template selected.')
+            return
+        try:
+            with open(json_path) as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                self.extracted_data_list.append(data)
+            elif isinstance(data, list):
+                self.extracted_data_list.extend(data)
+            else:
+                raise Exception("Extracted JSON is not dict or list.")
+        except Exception as e:
+            QMessageBox.critical(self, 'Data Error', f'Problem loading extracted data: {e}')
+            return
+
+        try:
+            map_to_excel(self.extracted_data_list, self.tpl_file, None)
+        except Exception as e:
+            QMessageBox.critical(self, 'Compile Error', str(e))
+            return
+
+        open_reply = QMessageBox.question(
             self,
-            'Extraction Complete',
-            "Data extracted.\n\nWould you like to download the summary as a text file, or submit for Excel processing?",
-            QMessageBox.Save | QMessageBox.Apply,
-            QMessageBox.Apply
+            'Processing complete',
+            f'Excel file updated: {self.tpl_file}\n\nOpen now?',
+            QMessageBox.Yes | QMessageBox.No
         )
-        if reply == QMessageBox.Save:
-            self.open_file(txt_path)
-        else:
-            if not self.tpl_file:
-                QMessageBox.warning(self, 'Error', 'No Excel template selected.')
-                return
-            try:
-                with open(json_path) as f:
-                    data = json.load(f)
-                if isinstance(data, dict):
-                    self.extracted_data_list.append(data)
-                elif isinstance(data, list):
-                    self.extracted_data_list.extend(data)
-                else:
-                    raise Exception("Extracted JSON is not dict or list.")
-            except Exception as e:
-                QMessageBox.critical(self, 'Data Error', f'Problem loading extracted data: {e}')
-                return
-
-            try:
-                map_to_excel(self.extracted_data_list, self.tpl_file, None)
-            except Exception as e:
-                QMessageBox.critical(self, 'Compile Error', str(e))
-                return
-
-            open_reply = QMessageBox.question(
-                self,
-                'Processing complete',
-                f'Excel file updated: {self.tpl_file}\n\nOpen now?',
-                QMessageBox.Yes | QMessageBox.No
-            )
-            if open_reply == QMessageBox.Yes:
-                self.open_file(self.tpl_file)
-            self.extracted_data_list = []
+        if open_reply == QMessageBox.Yes:
+            self.open_file(self.tpl_file)
+        self.extracted_data_list = []
 
     def open_file(self, filepath):
         if platform.system() == 'Darwin':       # macOS
