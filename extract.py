@@ -30,7 +30,6 @@ Do not provide explanations, just the formatted text.
 """
 
 def pdf_to_images_in_memory(pdf_path):
-    # Convert PDF to images (in memory)
     images = convert_from_path(pdf_path)
     image_bytes_list = []
     for img in images:
@@ -42,7 +41,6 @@ def pdf_to_images_in_memory(pdf_path):
 
 def call_gpt4o_vision(api_key, images, prompt):
     client = openai.OpenAI(api_key=api_key)
-    # Prepare images for OpenAI vision
     content = [{"type": "text", "text": prompt}]
     for img_buf in images:
         img_buf.seek(0)
@@ -53,7 +51,6 @@ def call_gpt4o_vision(api_key, images, prompt):
                 "url": f"data:image/png;base64,{b64_img}"
             }
         })
-
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -66,19 +63,19 @@ def call_gpt4o_vision(api_key, images, prompt):
 
 def main():
     parser = argparse.ArgumentParser(description="Extracts formatted text from PDFs using GPT-4o Vision.")
-    parser.add_argument("file", help="Path to financial PDF file")
+    parser.add_argument('--key', required=True, help="OpenAI API key")
+    parser.add_argument('files', nargs='+', help="Path(s) to one or more PDF files")
     parser.add_argument("-o", "--output", help="Output file for formatted text", default="formatted_output.txt")
-    parser.add_argument("--key", required=True, help="OpenAI API key")
     args = parser.parse_args()
 
-    # Convert PDF to in-memory images
-    images = pdf_to_images_in_memory(args.file)
+    all_images = []
+    for fpath in args.files:
+        print(f"Converting {os.path.basename(fpath)}...")
+        all_images.extend(pdf_to_images_in_memory(fpath))
 
-    # Send images + prompt to GPT-4o
-    print(f"Extracting {len(images)} pages from {os.path.basename(args.file)}...")
-    formatted_text = call_gpt4o_vision(args.key, images, VISION_PROMPT)
+    print(f"Extracting {len(all_images)} pages from {len(args.files)} PDF(s)...")
+    formatted_text = call_gpt4o_vision(args.key, all_images, VISION_PROMPT)
 
-    # Save result as text
     with open(args.output, "w") as f:
         f.write(formatted_text.strip())
     print(f"Formatted output saved to {args.output}")
