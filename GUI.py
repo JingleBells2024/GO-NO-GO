@@ -88,11 +88,11 @@ class FinancialAnalysis(QWidget):
         txt_path = os.path.join(os.getcwd(), 'gpt4o_extracted.txt')
         json_path = os.path.join(os.getcwd(), 'gpt4o_extracted.json')
 
-        # Run extract.py with all files and the API key
+        # Corrected: no --files flag
         args = [
             sys.executable, extractor,
             '--key', self.api_key,
-            '--files', *self.fin_files
+            *self.fin_files
         ]
         try:
             subprocess.run(args, check=True)
@@ -105,7 +105,6 @@ class FinancialAnalysis(QWidget):
             QMessageBox.critical(self, 'Extraction Error', 'Extraction did not produce output files.')
             return
 
-        # Prompt user: download as txt, or submit to Excel output
         reply = QMessageBox.question(
             self,
             'Extraction Complete',
@@ -119,11 +118,9 @@ class FinancialAnalysis(QWidget):
             if not self.tpl_file:
                 QMessageBox.warning(self, 'Error', 'No Excel template selected.')
                 return
-            # Load the JSON output
             try:
                 with open(json_path) as f:
                     data = json.load(f)
-                # Accept both single dict or list of dicts
                 if isinstance(data, dict):
                     self.extracted_data_list.append(data)
                 elif isinstance(data, list):
