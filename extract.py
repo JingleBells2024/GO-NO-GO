@@ -1,123 +1,114 @@
 #!/usr/bin/env python3
-import sys, os, argparse, json, re
-from openpyxl import load_workbook
+import argparse
+import openai
+import os
+import json
+import re
 
-# PDF support (needs PyPDF2)
-try:
-    from PyPDF2 import PdfReader
-    _PDF_OK = True
-except ImportError:
-    _PDF_OK = False
+# --- Prompt ---
+VISION_PROMPT = """
+Instructions:
+I am uploading several financial documents.
+Please extract all relevant yearly financial data and summarize it in this exact text format, for every year present in the documents:
 
-# All categories, in order, matching your compiler/template
-CATEGORIES = [
-    "year",
-    "Revenue",
-    "Cost of Goods Sold (COGS)",
-    "Operating Expenses",
-    "Taxes",
-    "Depreciation & Amortization",
-    "Plus Interest",
-    "Owner Salary+Super",
-    "Owner Benefits",
-    "Manager Salary",
-    "Investor Salary",
-    "One off Revenue Adjustments",
-    "One off Expenses Adjustments",
-    "Other Adjustments 1",
-    "Other Adjustments 2",
-    "Assets",
-    "Liabilities",
-    "Equity",
-    "Other Income",
-    "Total add backs"
-]
+2022
+• Revenue: 
+• Cost of Goods Sold (COGS):
+• Less Operating Expenses:
+• Other Income:
+• Plus Owner Salary+Super etc:
+• Plus Owner Benefits:
+• Total add backs:
+2023
+(and so on for each year...)
 
-def extract_excel(path):
-    wb = load_workbook(path, data_only=True)
-    ws = wb.active
-    header_row = None
-    for i, row in enumerate(ws.iter_rows(values_only=True), 1):
-        if row and "Revenue" in [str(cell) for cell in row]:
-            header_row = i
-            break
-    if header_row is None:
-        sys.exit("Could not find header row in Excel file.")
+If any value is missing, set it to 0.
+Use exactly these categories and wording for each year.
+Do not add or remove any fields.
+Do not provide explanations, just the formatted text.
+"""
 
-    # Read all rows after header, map by year if possible
+def parse_gpt_output(text):
+    # Parse the text block into a JSON array
+    years = re.split(r'(?=\d{4}\n)', text)
+    categories = [
+        "Revenue",
+        "Cost of Goods Sold (COGS)",
+        "Less Operating Expenses",
+        "Other Income",
+        "Plus Owner Salary+Super etc",
+        "Plus Owner Benefits",
+        "Total add backs"
+    ]
     data = []
-    for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
-        year = None
-        entry = {cat: 0 for cat in CATEGORIES}
-        for j, value in enumerate(row):
-            if value is None:
-                continue
-            colname = ws.cell(row=header_row, column=j+1).value
-            if colname is not None:
-                cat = colname.strip()
-                if cat in CATEGORIES:
-                    if cat == "year":
-                        entry[cat] = int(str(value).strip())
-                        year = entry[cat]
-                    else:
-                        entry[cat] = value
-        if year:
-            entry["year"] = year
+    for year_block in years:
+        lines = year_block.strip().split('\n')
+        entry = {}
+        for line in lines:
+            if line.strip().isdigit():
+                entry['year'] = int(line.strip())
+            else:
+                match = re.match(r'• (.*?):\s*([0-9,\.]*)', line.strip())
+                if match:
+                    k, v = match.groups()
+                    if k in categories:
+                        entry[k] = float(v.replace(',', '')) if v else 0
+        if entry.get('year'):
+            # Make sure all categories are present
+            for cat in categories:
+                if cat not in entry:
+                    entry[cat] = 0
             data.append(entry)
     return data
 
-def extract_pdf(path):
-    if not _PDF_OK:
-        sys.exit("Install PyPDF2 (`pip install PyPDF2`) to extract PDF")
-    reader = PdfReader(path)
-    all_text = "\n".join([p.extract_text() or "" for p in reader.pages])
-    return parse_financial_text(all_text)
-
-def parse_financial_text(text):
-    # Extract each year's section
-    year_blocks = re.split(r"\b(20\d{2})(?:\s*\(.*?\))?\s*\n", text)
-    records = []
-    # year_blocks is like: ["", "2022", "<block>", "2023", "<block>", ...]
-    for i in range(1, len(year_blocks), 2):
-        year = int(year_blocks[i])
-        block = year_blocks[i + 1]
-        record = {cat: 0 for cat in CATEGORIES}
-        record["year"] = year
-        for cat in CATEGORIES[1:]:  # skip year itself
-            # Search for "Label: value" in the block
-            pattern = re.compile(rf"{re.escape(cat)}[:：]\s*([\d,\.]+)", re.IGNORECASE)
-            m = pattern.search(block)
-            if m:
-                val = m.group(1).replace(",", "")
-                try:
-                    record[cat] = float(val)
-                except Exception:
-                    record[cat] = 0
-        records.append(record)
-    return records
+def call_gpt4o_vision(api_key, filepaths, prompt=VISION_PROMPT):
+    client = openai.OpenAI(api_key=api_key)
+    files = []
+    try:
+        # Upload all files to OpenAI
+        for path in filepaths:
+            files.append({"type": "file", "file": open(path, "rb")})
+        messages = [
+            {"role": "system", "content": "You are a financial document data extractor."},
+            {"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                *files
+            ]}
+        ]
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            max_tokens=2048,
+            temperature=0
+        )
+        text = response.choices[0].message.content.strip()
+        return text
+    finally:
+        for f in files:
+            if hasattr(f['file'], 'close'):
+                f['file'].close()
 
 def main():
-    parser = argparse.ArgumentParser(description="Extract financial data from PDF/Excel to structured JSON.")
-    parser.add_argument("file", help="Path to .pdf or .xlsx file")
-    parser.add_argument("-o", "--output", help="Output JSON file", default="extracted_data.json")
+    parser = argparse.ArgumentParser(description="Extracts yearly financial data using GPT-4o Vision.")
+    parser.add_argument('--key', required=True, help="OpenAI API key")
+    parser.add_argument('--files', nargs='+', required=True, help="Paths to PDF, image, or Excel files")
+    parser.add_argument('--output', default='gpt4o_extracted.txt', help="Text output file")
+    parser.add_argument('--json', default='gpt4o_extracted.json', help="JSON output file")
     args = parser.parse_args()
 
-    if not os.path.isfile(args.file):
-        sys.exit(f"File not found: {args.file}")
+    # Run GPT-4o Vision
+    formatted_text = call_gpt4o_vision(args.key, args.files)
+    print("\n--- Extracted formatted text ---\n")
+    print(formatted_text)
+    with open(args.output, 'w') as f:
+        f.write(formatted_text)
 
-    ext = os.path.splitext(args.file)[1].lower()
-    if ext in (".xlsx", ".xlsm"):
-        data = extract_excel(args.file)
-    elif ext == ".pdf":
-        data = extract_pdf(args.file)
-    else:
-        sys.exit("Unsupported file type. Use .pdf or .xlsx")
-
-    # Write output as valid JSON array
-    with open(args.output, "w") as f:
-        json.dump(data, f, indent=2)
-    print(f"Extracted structured data saved to {args.output}")
+    # Parse and save JSON
+    data = parse_gpt_output(formatted_text)
+    print("\n--- Parsed JSON ---\n")
     print(json.dumps(data, indent=2))
+    with open(args.json, 'w') as f:
+        json.dump(data, f, indent=2)
 
 if __name__ == "__main__":
     main()
