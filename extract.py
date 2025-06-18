@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
+import sys
+import os
 import argparse
 import openai
-import os
-import json
-import re
+import base64
+from pdf2image import convert_from_path
+from PIL import Image
 
-# --- Prompt ---
+# --- Hard-coded prompt (edit as needed) ---
 VISION_PROMPT = """
 Instructions:
 I am uploading several financial documents.
@@ -28,87 +30,68 @@ Do not add or remove any fields.
 Do not provide explanations, just the formatted text.
 """
 
-def parse_gpt_output(text):
-    # Parse the text block into a JSON array
-    years = re.split(r'(?=\d{4}\n)', text)
-    categories = [
-        "Revenue",
-        "Cost of Goods Sold (COGS)",
-        "Less Operating Expenses",
-        "Other Income",
-        "Plus Owner Salary+Super etc",
-        "Plus Owner Benefits",
-        "Total add backs"
-    ]
-    data = []
-    for year_block in years:
-        lines = year_block.strip().split('\n')
-        entry = {}
-        for line in lines:
-            if line.strip().isdigit():
-                entry['year'] = int(line.strip())
-            else:
-                match = re.match(r'• (.*?):\s*([0-9,\.]*)', line.strip())
-                if match:
-                    k, v = match.groups()
-                    if k in categories:
-                        entry[k] = float(v.replace(',', '')) if v else 0
-        if entry.get('year'):
-            # Make sure all categories are present
-            for cat in categories:
-                if cat not in entry:
-                    entry[cat] = 0
-            data.append(entry)
-    return data
+def pdf_to_images(pdf_path):
+    """Converts a PDF into a list of images (one per page)."""
+    images = convert_from_path(pdf_path)
+    img_paths = []
+    for i, img in enumerate(images):
+        img_path = f"{os.path.splitext(pdf_path)[0]}_page{i+1}.png"
+        img.save(img_path, "PNG")
+        img_paths.append(img_path)
+    return img_paths
 
-def call_gpt4o_vision(api_key, filepaths, prompt=VISION_PROMPT):
+def encode_image(image_path):
+    """Read image and base64 encode it for Vision API."""
+    with open(image_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
+def vision_extract(api_key, image_paths, prompt):
+    """Call GPT-4o Vision with each image, concatenate results."""
     client = openai.OpenAI(api_key=api_key)
-    files = []
-    try:
-        # Upload all files to OpenAI
-        for path in filepaths:
-            files.append({"type": "file", "file": open(path, "rb")})
+    all_text = ""
+    for img_path in image_paths:
+        encoded = encode_image(img_path)
         messages = [
-            {"role": "system", "content": "You are a financial document data extractor."},
-            {"role": "user", "content": [
-                {"type": "text", "text": prompt},
-                *files
-            ]}
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": f"data:image/png;base64,{encoded}"}
+                ]
+            }
         ]
-        response = client.chat.completions.create(
+        resp = client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
             max_tokens=2048,
             temperature=0
         )
-        text = response.choices[0].message.content.strip()
-        return text
-    finally:
-        for f in files:
-            if hasattr(f['file'], 'close'):
-                f['file'].close()
+        page_text = resp.choices[0].message.content.strip()
+        all_text += "\n" + page_text
+        print(f"\n--- Extracted text from {img_path} ---\n{page_text}\n")
+    return all_text.strip()
 
 def main():
-    parser = argparse.ArgumentParser(description="Extracts yearly financial data using GPT-4o Vision.")
-    parser.add_argument('--key', required=True, help="OpenAI API key")
-    parser.add_argument('--files', nargs='+', required=True, help="Paths to PDF, image, or Excel files")
-    parser.add_argument('--output', default='gpt4o_extracted.txt', help="Text output file")
-    parser.add_argument('--json', default='gpt4o_extracted.json', help="JSON output file")
+    parser = argparse.ArgumentParser(description="Extract financial data from PDF(s) using GPT-4o Vision.")
+    parser.add_argument("--key", required=True, help="OpenAI API key")
+    parser.add_argument("--files", nargs="+", required=True, help="PDF files to extract from")
+    parser.add_argument("-o", "--output", default="extracted_data.txt", help="Output text file")
     args = parser.parse_args()
 
-    # Run GPT-4o Vision
-    formatted_text = call_gpt4o_vision(args.key, args.files)
-    print("\n--- Extracted formatted text ---\n")
-    print(formatted_text)
-    with open(args.output, 'w') as f:
-        f.write(formatted_text)
+    all_images = []
+    for pdf in args.files:
+        imgs = pdf_to_images(pdf)
+        all_images.extend(imgs)
 
-    # Parse and save JSON
-    data = parse_gpt_output(formatted_text)
-    print("\n--- Parsed JSON ---\n")
-    print(json.dumps(data, indent=2))
-    with open(args.json, 'w') as f:
-        json.dump(data, f, indent=2)
+    print(f"Extracting {len(all_images)} pages from {len(args.files)} PDF(s)...")
+
+    result_text = vision_extract(args.key, all_images, VISION_PROMPT)
+
+    with open(args.output, "w") as f:
+        f.write(result_text)
+    print(f"\nAll extracted text saved to {args.output}")
+
+    # Optional: If you want to convert formatted text to JSON automatically, you could do it here.
 
 if __name__ == "__main__":
     main()
