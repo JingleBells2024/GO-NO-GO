@@ -16,7 +16,7 @@ class FinancialAnalysis(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Financial Analysis')
-        self.resize(700, 450)
+        self.resize(720, 500)
 
         self.fin_files = []
         self.tpl_file = None
@@ -30,6 +30,12 @@ class FinancialAnalysis(QWidget):
         layout.addWidget(btn1)
         self.fin_label = QLabel('No financial files selected')
         layout.addWidget(self.fin_label)
+
+        btn_json = QPushButton('Upload Extracted JSON File')
+        btn_json.clicked.connect(self.upload_json)
+        layout.addWidget(btn_json)
+        self.json_label = QLabel('No JSON file uploaded')
+        layout.addWidget(self.json_label)
 
         btn2 = QPushButton('Upload Excel Template')
         btn2.clicked.connect(self.upload_template)
@@ -71,6 +77,43 @@ class FinancialAnalysis(QWidget):
             self.fin_files = []
             self.fin_label.setText('No financial files selected')
             self.fin_label.setStyleSheet('color: red')
+
+    def upload_json(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, 'Choose JSON File',
+            filter='JSON Files (*.json)'
+        )
+        if path:
+            self.json_label.setText(os.path.basename(path))
+            self.json_label.setStyleSheet('color: green')
+            # Try loading and compiling the JSON to Excel
+            if not self.tpl_file:
+                QMessageBox.warning(self, 'Error', 'No Excel template selected.')
+                return
+            try:
+                with open(path) as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    self.extracted_data_list = [data]
+                elif isinstance(data, list):
+                    self.extracted_data_list = data
+                else:
+                    raise Exception("Uploaded JSON is not dict or list.")
+                map_to_excel(self.extracted_data_list, self.tpl_file, None)
+                open_reply = QMessageBox.question(
+                    self,
+                    'Processing complete',
+                    f'Excel file updated: {self.tpl_file}\n\nOpen now?',
+                    QMessageBox.Yes | QMessageBox.No
+                )
+                if open_reply == QMessageBox.Yes:
+                    self.open_file(self.tpl_file)
+                self.extracted_data_list = []
+            except Exception as e:
+                QMessageBox.critical(self, 'JSON Upload Error', f'Problem processing uploaded JSON: {e}')
+        else:
+            self.json_label.setText('No JSON file uploaded')
+            self.json_label.setStyleSheet('color: red')
 
     def upload_template(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -122,9 +165,9 @@ class FinancialAnalysis(QWidget):
             with open(json_path) as f:
                 data = json.load(f)
             if isinstance(data, dict):
-                self.extracted_data_list.append(data)
+                self.extracted_data_list = [data]
             elif isinstance(data, list):
-                self.extracted_data_list.extend(data)
+                self.extracted_data_list = data
             else:
                 raise Exception("Extracted JSON is not dict or list.")
         except Exception as e:
