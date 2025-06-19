@@ -56,7 +56,7 @@ Return only valid JSON—no extra text.
 ]
 Do not add or remove fields. Do not estimate or infer values. Only copy numbers as written.
 If a field is missing for a year, use 0.
-Return only the JSON array—no commentary, no formatting, no markdown.
+Return only the JSON array. No commentary, no markdown, no explanations.
 """
 
 def build_final_prompt(user_prompt):

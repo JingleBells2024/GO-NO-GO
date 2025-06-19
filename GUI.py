@@ -41,9 +41,14 @@ class FinancialAnalysis(QWidget):
         self.api_input.setPlaceholderText('sk-...')
         layout.addWidget(self.api_input)
 
-        prompt_label = QLabel('Enter Extraction Prompt (you can leave this as default, or customize):')
+        prompt_label = QLabel('Describe exactly what you want extracted or summarized from your documents:')
         layout.addWidget(prompt_label)
         self.prompt_input = QTextEdit()
+        self.prompt_input.setText(
+            "For example:\n"
+            "\"I want all personal expenses, all owner wages, and all add backs listed for each year. Please be thorough.\"\n\n"
+            "You do not need to specify a format or schema—the system will handle that automatically."
+        )
         layout.addWidget(self.prompt_input)
 
         extract_btn = QPushButton('Extract Data')
