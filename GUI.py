@@ -3,11 +3,12 @@ import os
 import json
 import subprocess
 import platform
+import webbrowser
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
-    QFileDialog, QMessageBox, QLabel, QLineEdit, QTextEdit
+    QFileDialog, QMessageBox, QLabel, QLineEdit
 )
-from compiler import map_to_excel  # Import as a function
+from compiler import map_to_excel  # Your existing function
 
 class FinancialAnalysis(QWidget):
     def __init__(self):
@@ -34,40 +35,26 @@ class FinancialAnalysis(QWidget):
         self.tpl_label = QLabel('No template selected')
         layout.addWidget(self.tpl_label)
 
-        api_label = QLabel('Enter API Key:')
+        api_label = QLabel('Enter API Key (for auto-extraction):')
         layout.addWidget(api_label)
         self.api_input = QLineEdit()
         self.api_input.setEchoMode(QLineEdit.Password)
         self.api_input.setPlaceholderText('sk-...')
         layout.addWidget(self.api_input)
 
-        prompt_label = QLabel('Describe exactly what you want extracted or summarized from your documents:')
-        layout.addWidget(prompt_label)
-        self.prompt_input = QTextEdit()
-        self.prompt_input.setText(
-            "Describe exactly what you want extracted or summarized from your documents, for example:\n"
-            "\"I want all personal expenses, all owner wages, and all add backs listed for each year. Please be thorough.\"\n\n"
-            "— Below are technical requirements you do not need to change —\n\n"
-            "Return the extracted data in this exact JSON array format, one object per year. If a value is missing, use 0. Do not add or remove any fields. Do not include any explanation or markdown—only return the JSON array:\n\n"
-            "[\n"
-            "  {\n"
-            "    \"year\": 2022,\n"
-            "    \"Revenue\": ..., \n"
-            "    \"Cost of Goods Sold (COGS)\": ..., \n"
-            "    \"Less Operating Expenses\": ..., \n"
-            "    \"Other Income\": ..., \n"
-            "    \"Plus Owner Salary+Super etc\": ..., \n"
-            "    \"Plus Owner Benefits\": ..., \n"
-            "    \"Total add backs\": ...\n"
-            "  },\n"
-            "  ...\n"
-            "]"
-        )
-        layout.addWidget(self.prompt_input)
-
-        extract_btn = QPushButton('Extract Data')
+        extract_btn = QPushButton('Extract Data (Auto)')
         extract_btn.clicked.connect(self.extract_data)
         layout.addWidget(extract_btn)
+
+        # New: Upload pre-extracted data (e.g., from ChatGPT web UI)
+        upload_json_btn = QPushButton('Upload Extracted Data (JSON from ChatGPT)')
+        upload_json_btn.clicked.connect(self.upload_extracted_json)
+        layout.addWidget(upload_json_btn)
+
+        # Optional: Button to open ChatGPT web UI
+        chatgpt_btn = QPushButton('Open ChatGPT Web UI')
+        chatgpt_btn.clicked.connect(lambda: webbrowser.open('https://chat.openai.com/'))
+        layout.addWidget(chatgpt_btn)
 
         self.setLayout(layout)
 
@@ -101,25 +88,18 @@ class FinancialAnalysis(QWidget):
 
     def extract_data(self):
         self.api_key = self.api_input.text().strip()
-        prompt = self.prompt_input.toPlainText().strip()
         if not self.api_key:
             QMessageBox.warning(self, 'Error', 'Enter API key.')
             return
         if not self.fin_files:
             QMessageBox.warning(self, 'Error', 'Upload at least one financial file.')
             return
-        if not prompt:
-            QMessageBox.warning(self, 'Error', 'Enter an extraction prompt.')
-            return
 
         extractor = os.path.join(os.path.dirname(__file__), 'extract.py')
         json_path = os.path.join(os.getcwd(), 'gpt4o_extracted.json')
-
-        # Pass prompt to extract.py (add --prompt)
         args = [
             sys.executable, extractor,
             '--key', self.api_key,
-            '--prompt', prompt,
             *self.fin_files
         ]
         try:
@@ -132,12 +112,27 @@ class FinancialAnalysis(QWidget):
             QMessageBox.critical(self, 'Extraction Error', 'Extraction did not produce output file.')
             return
 
+        # Continue to Excel processing
+        self.process_extracted_json(json_path)
+
+    def upload_extracted_json(self):
+        json_path, _ = QFileDialog.getOpenFileName(
+            self, 'Upload Extracted Data (JSON from ChatGPT)',
+            filter='JSON Files (*.json);;Text Files (*.txt);;All Files (*)'
+        )
+        if not json_path:
+            return
+
+        self.process_extracted_json(json_path)
+
+    def process_extracted_json(self, json_path):
         if not self.tpl_file:
             QMessageBox.warning(self, 'Error', 'No Excel template selected.')
             return
         try:
             with open(json_path) as f:
                 data = json.load(f)
+            self.extracted_data_list = []
             if isinstance(data, dict):
                 self.extracted_data_list.append(data)
             elif isinstance(data, list):
