@@ -45,9 +45,23 @@ class FinancialAnalysis(QWidget):
         layout.addWidget(prompt_label)
         self.prompt_input = QTextEdit()
         self.prompt_input.setText(
-            "For example:\n"
+            "Describe exactly what you want extracted or summarized from your documents, for example:\n"
             "\"I want all personal expenses, all owner wages, and all add backs listed for each year. Please be thorough.\"\n\n"
-            "You do not need to specify a format or schema—the system will handle that automatically."
+            "— Below are technical requirements you do not need to change —\n\n"
+            "Return the extracted data in this exact JSON array format, one object per year. If a value is missing, use 0. Do not add or remove any fields. Do not include any explanation or markdown—only return the JSON array:\n\n"
+            "[\n"
+            "  {\n"
+            "    \"year\": 2022,\n"
+            "    \"Revenue\": ..., \n"
+            "    \"Cost of Goods Sold (COGS)\": ..., \n"
+            "    \"Less Operating Expenses\": ..., \n"
+            "    \"Other Income\": ..., \n"
+            "    \"Plus Owner Salary+Super etc\": ..., \n"
+            "    \"Plus Owner Benefits\": ..., \n"
+            "    \"Total add backs\": ...\n"
+            "  },\n"
+            "  ...\n"
+            "]"
         )
         layout.addWidget(self.prompt_input)
 
