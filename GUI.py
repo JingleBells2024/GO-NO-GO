@@ -5,7 +5,7 @@ import subprocess
 import platform
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
-    QFileDialog, QMessageBox, QLabel, QLineEdit, QDesktopWidget
+    QFileDialog, QMessageBox, QLabel, QDialog, QLineEdit, QDialogButtonBox, QDesktopWidget
 )
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
@@ -14,6 +14,27 @@ from compiler import map_to_excel  # Import as a function
 API_KEY_FILE = "api_key.txt"
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "Logo.png")
 BUTTON_WIDTH = 340  # Unified width for all elements
+
+class ApiKeyDialog(QDialog):
+    def __init__(self, parent=None, current_key=""):
+        super().__init__(parent)
+        self.setWindowTitle("Enter API Key")
+        self.resize(380, 120)
+        layout = QVBoxLayout()
+        self.label = QLabel("Paste your OpenAI API key below:")
+        self.input = QLineEdit()
+        self.input.setEchoMode(QLineEdit.Password)
+        self.input.setText(current_key)
+        layout.addWidget(self.label)
+        layout.addWidget(self.input)
+        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.setLayout(layout)
+
+    def get_key(self):
+        return self.input.text().strip()
 
 class FinancialAnalysis(QWidget):
     def __init__(self):
@@ -27,6 +48,12 @@ class FinancialAnalysis(QWidget):
         self.api_key = None
         self.extracted_data_list = []
         self.last_extracted_json = None
+
+        # Load API key if exists
+        self.api_key = ""
+        if os.path.exists(API_KEY_FILE):
+            with open(API_KEY_FILE, 'r') as f:
+                self.api_key = f.read().strip()
 
         main_layout = QVBoxLayout()
         main_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
@@ -57,29 +84,18 @@ class FinancialAnalysis(QWidget):
         self.tpl_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(self.tpl_label)
 
-        # API Key label and input
-        api_label = QLabel('Enter API Key:')
-        api_label.setAlignment(Qt.AlignCenter)
-        api_label.setFixedWidth(BUTTON_WIDTH)
-        main_layout.addWidget(api_label)
+        # API Key Button
+        self.api_btn = QPushButton('Enter API Key')
+        self.api_btn.setFixedWidth(BUTTON_WIDTH)
+        self.api_btn.clicked.connect(self.open_api_dialog)
+        main_layout.addWidget(self.api_btn)
 
-        self.api_input = QLineEdit()
-        self.api_input.setFixedWidth(BUTTON_WIDTH)
-        self.api_input.setEchoMode(QLineEdit.Password)
-        self.api_input.setPlaceholderText('sk-...')
-        main_layout.addWidget(self.api_input)
-
-        # Load API key if exists
-        if os.path.exists(API_KEY_FILE):
-            with open(API_KEY_FILE, 'r') as f:
-                self.api_input.setText(f.read().strip())
+        # Show status for API key
+        self.api_status = QLabel(self.api_key_status())
+        self.api_status.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(self.api_status)
 
         # Buttons (all fixed width)
-        save_btn = QPushButton('Save API Key')
-        save_btn.setFixedWidth(BUTTON_WIDTH)
-        save_btn.clicked.connect(self.save_api_key)
-        main_layout.addWidget(save_btn)
-
         extract_btn = QPushButton('Extract Data')
         extract_btn.setFixedWidth(BUTTON_WIDTH)
         extract_btn.clicked.connect(self.extract_data)
@@ -107,6 +123,26 @@ class FinancialAnalysis(QWidget):
         cp = QDesktopWidget().availableGeometry().center()
         qr.moveCenter(cp)
         self.move(qr.topLeft())
+
+    def api_key_status(self):
+        if self.api_key and self.api_key.startswith("sk-") and len(self.api_key) > 10:
+            return "API Key saved ✔"
+        else:
+            return "No API Key saved"
+
+    def open_api_dialog(self):
+        dlg = ApiKeyDialog(self, current_key=self.api_key)
+        if dlg.exec_():
+            key = dlg.get_key()
+            if key:
+                self.api_key = key
+                with open(API_KEY_FILE, 'w') as f:
+                    f.write(self.api_key)
+                self.api_status.setText("API Key saved ✔")
+                QMessageBox.information(self, "Saved", "API key saved securely.")
+            else:
+                self.api_status.setText("No API Key saved")
+                QMessageBox.warning(self, "Warning", "API key cannot be empty.")
 
     def upload_financial(self):
         files, _ = QFileDialog.getOpenFileNames(
@@ -137,9 +173,8 @@ class FinancialAnalysis(QWidget):
             self.tpl_label.setStyleSheet('color: red')
 
     def extract_data(self):
-        self.api_key = self.api_input.text().strip()
-        if not self.api_key:
-            QMessageBox.warning(self, 'Error', 'Enter API key.')
+        if not self.api_key or not (self.api_key.startswith("sk-") and len(self.api_key) > 10):
+            QMessageBox.warning(self, 'Error', 'Please enter and save a valid API key.')
             return
         if not self.fin_files:
             QMessageBox.warning(self, 'Error', 'Upload at least one financial file.')
@@ -228,15 +263,6 @@ class FinancialAnalysis(QWidget):
             os.startfile(filepath)
         else:                                   # Linux and others
             subprocess.run(['xdg-open', filepath])
-
-    def save_api_key(self):
-        api_key = self.api_input.text().strip()
-        if api_key:
-            with open(API_KEY_FILE, 'w') as f:
-                f.write(api_key)
-            QMessageBox.information(self, "Saved", "API key saved securely.")
-        else:
-            QMessageBox.warning(self, "Warning", "API key cannot be empty.")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
