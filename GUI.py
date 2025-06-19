@@ -8,13 +8,15 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
     QFileDialog, QMessageBox, QLabel, QLineEdit
 )
-from compiler import map_to_excel  # Your existing function
+from PyQt5.QtGui import QClipboard
+
+from compiler import map_to_excel  # Import as a function
 
 class FinancialAnalysis(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Financial Analysis')
-        self.resize(700, 500)
+        self.resize(700, 450)
 
         self.fin_files = []
         self.tpl_file = None
@@ -35,26 +37,24 @@ class FinancialAnalysis(QWidget):
         self.tpl_label = QLabel('No template selected')
         layout.addWidget(self.tpl_label)
 
-        api_label = QLabel('Enter API Key (for auto-extraction):')
+        api_label = QLabel('Enter API Key:')
         layout.addWidget(api_label)
         self.api_input = QLineEdit()
         self.api_input.setEchoMode(QLineEdit.Password)
         self.api_input.setPlaceholderText('sk-...')
         layout.addWidget(self.api_input)
 
-        extract_btn = QPushButton('Extract Data (Auto)')
+        extract_btn = QPushButton('Extract Data')
         extract_btn.clicked.connect(self.extract_data)
         layout.addWidget(extract_btn)
 
-        # New: Upload pre-extracted data (e.g., from ChatGPT web UI)
-        upload_json_btn = QPushButton('Upload Extracted Data (JSON from ChatGPT)')
-        upload_json_btn.clicked.connect(self.upload_extracted_json)
-        layout.addWidget(upload_json_btn)
-
-        # Optional: Button to open ChatGPT web UI
         chatgpt_btn = QPushButton('Open ChatGPT Web UI')
-        chatgpt_btn.clicked.connect(lambda: webbrowser.open('https://chat.openai.com/'))
+        chatgpt_btn.clicked.connect(self.open_chatgpt)
         layout.addWidget(chatgpt_btn)
+
+        copy_json_btn = QPushButton('Copy Extracted JSON to Clipboard')
+        copy_json_btn.clicked.connect(self.copy_json_to_clipboard)
+        layout.addWidget(copy_json_btn)
 
         self.setLayout(layout)
 
@@ -97,9 +97,12 @@ class FinancialAnalysis(QWidget):
 
         extractor = os.path.join(os.path.dirname(__file__), 'extract.py')
         json_path = os.path.join(os.getcwd(), 'gpt4o_extracted.json')
+
+        # Always pass empty prompt ("") since extract.py has hardcoded prompt
         args = [
             sys.executable, extractor,
             '--key', self.api_key,
+            '--prompt', "",
             *self.fin_files
         ]
         try:
@@ -112,27 +115,12 @@ class FinancialAnalysis(QWidget):
             QMessageBox.critical(self, 'Extraction Error', 'Extraction did not produce output file.')
             return
 
-        # Continue to Excel processing
-        self.process_extracted_json(json_path)
-
-    def upload_extracted_json(self):
-        json_path, _ = QFileDialog.getOpenFileName(
-            self, 'Upload Extracted Data (JSON from ChatGPT)',
-            filter='JSON Files (*.json);;Text Files (*.txt);;All Files (*)'
-        )
-        if not json_path:
-            return
-
-        self.process_extracted_json(json_path)
-
-    def process_extracted_json(self, json_path):
         if not self.tpl_file:
             QMessageBox.warning(self, 'Error', 'No Excel template selected.')
             return
         try:
             with open(json_path) as f:
                 data = json.load(f)
-            self.extracted_data_list = []
             if isinstance(data, dict):
                 self.extracted_data_list.append(data)
             elif isinstance(data, list):
@@ -160,12 +148,26 @@ class FinancialAnalysis(QWidget):
         self.extracted_data_list = []
 
     def open_file(self, filepath):
-        if platform.system() == 'Darwin':       # macOS
+        if platform.system() == 'Darwin':
             subprocess.run(['open', filepath])
-        elif platform.system() == 'Windows':    # Windows
+        elif platform.system() == 'Windows':
             os.startfile(filepath)
-        else:                                   # Linux and others
+        else:
             subprocess.run(['xdg-open', filepath])
+
+    def open_chatgpt(self):
+        webbrowser.open("https://chat.openai.com/")
+
+    def copy_json_to_clipboard(self):
+        json_path = os.path.join(os.getcwd(), 'gpt4o_extracted.json')
+        if not os.path.isfile(json_path):
+            QMessageBox.warning(self, 'No JSON File', 'No extracted JSON file found.')
+            return
+        with open(json_path) as f:
+            data = f.read()
+        clipboard = QApplication.clipboard()
+        clipboard.setText(data)
+        QMessageBox.information(self, 'Copied', 'Extracted JSON copied to clipboard.')
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
