@@ -36,6 +36,12 @@ class ApiKeyDialog(QDialog):
     def get_key(self):
         return self.input.text().strip()
 
+    def resource_path(relative_path):
+    # When packaged, sys._MEIPASS is the temp folder where resources are extracted
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.dirname(__file__), relative_path)
+
 class FinancialAnalysis(QWidget):
     def __init__(self):
         super().__init__()
