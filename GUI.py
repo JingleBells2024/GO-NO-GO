@@ -19,7 +19,6 @@ class FinancialAnalysis(QWidget):
         super().__init__()
         self.setWindowTitle('Deal Sheet – Financial Analysis')
         self.resize(470, 750)
-        self.setStyleSheet("background: #28292e;")
         self.fin_files = []
         self.tpl_file = None
         self.api_key = None
