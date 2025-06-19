@@ -4,7 +4,7 @@ import json
 import subprocess
 import platform
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+    QApplication, QWidget, QVBoxLayout, QPushButton,
     QFileDialog, QMessageBox, QLabel, QLineEdit, QDesktopWidget
 )
 from PyQt5.QtGui import QPixmap
@@ -13,13 +13,13 @@ from compiler import map_to_excel  # Import as a function
 
 API_KEY_FILE = "api_key.txt"
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "Logo.png")
-BUTTON_WIDTH = 360
+BUTTON_WIDTH = 340  # Unified width for all elements
 
 class FinancialAnalysis(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Deal Sheet – Financial Analysis')
-        self.resize(420, 780)
+        self.resize(BUTTON_WIDTH + 80, 740)
         self.center()
 
         self.fin_files = []
@@ -35,7 +35,7 @@ class FinancialAnalysis(QWidget):
         if os.path.exists(LOGO_PATH):
             logo_label = QLabel()
             pixmap = QPixmap(LOGO_PATH)
-            logo_label.setPixmap(pixmap.scaled(350, 350, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            logo_label.setPixmap(pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             logo_label.setAlignment(Qt.AlignCenter)
             main_layout.addWidget(logo_label)
 
@@ -57,7 +57,7 @@ class FinancialAnalysis(QWidget):
         self.tpl_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(self.tpl_label)
 
-        # API Key row: label + input in one line, both fixed width
+        # API Key label and input
         api_label = QLabel('Enter API Key:')
         api_label.setAlignment(Qt.AlignCenter)
         api_label.setFixedWidth(BUTTON_WIDTH)
