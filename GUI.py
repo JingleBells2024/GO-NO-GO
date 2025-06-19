@@ -4,96 +4,113 @@ import json
 import subprocess
 import platform
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QPushButton,
-    QFileDialog, QMessageBox, QLabel, QLineEdit, QHBoxLayout
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+    QFileDialog, QMessageBox, QLabel, QLineEdit, QSizePolicy
 )
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QIcon
 from PyQt5.QtCore import Qt
-from compiler import map_to_excel  # Import as a function
+from compiler import map_to_excel  # Your Excel mapping function
+
+LOGO_PATH = os.path.join(os.path.dirname(__file__), "Logo.png")
 
 class FinancialAnalysis(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Deal Sheet – Financial Analysis')
-        self.resize(700, 560)
+        self.resize(470, 750)
+        self.setStyleSheet("background: #28292e;")
 
         self.fin_files = []
         self.tpl_file = None
         self.api_key = None
         self.extracted_data_list = []
-        self.extracted_json_path = os.path.join(os.getcwd(), 'gpt4o_extracted.json')
+        self.json_data = None
 
-        main_layout = QVBoxLayout()
+        # Layouts
+        outer = QVBoxLayout()
+        outer.setAlignment(Qt.AlignTop)
+        outer.setSpacing(12)
 
-        # Logo at the top
-        logo_path = os.path.join(os.path.dirname(__file__), "Logo.png")
-        if os.path.isfile(logo_path):
-            logo_label = QLabel()
-            pixmap = QPixmap(logo_path)
-            pixmap = pixmap.scaledToWidth(220, Qt.SmoothTransformation)
-            logo_label.setPixmap(pixmap)
-            logo_label.setAlignment(Qt.AlignCenter)
-            main_layout.addWidget(logo_label)
-        else:
-            main_layout.addWidget(QLabel("(Logo not found)"))
+        # Logo (larger: 280x280)
+        logo_label = QLabel()
+        pixmap = QPixmap(LOGO_PATH)
+        pixmap = pixmap.scaled(280, 280, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        logo_label.setPixmap(pixmap)
+        logo_label.setAlignment(Qt.AlignHCenter)
+        outer.addWidget(logo_label, alignment=Qt.AlignHCenter)
 
-        # Upload Financial Files
+        # Card Layout for all buttons/inputs
+        card = QVBoxLayout()
+        card.setAlignment(Qt.AlignTop)
+        card.setSpacing(10)
+        card.setContentsMargins(0, 0, 0, 0)
+
+        def add_card_widget(w):
+            w.setFixedWidth(330)
+            w.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            card.addWidget(w, alignment=Qt.AlignHCenter)
+
+        # Financial files
         btn1 = QPushButton('Upload Financial Files')
         btn1.clicked.connect(self.upload_financial)
-        main_layout.addWidget(btn1)
+        add_card_widget(btn1)
         self.fin_label = QLabel('No financial files selected')
-        main_layout.addWidget(self.fin_label)
+        self.fin_label.setStyleSheet('color: #eee')
+        add_card_widget(self.fin_label)
 
-        # Upload Excel Template
+        # Template file
         btn2 = QPushButton('Upload Excel Template')
         btn2.clicked.connect(self.upload_template)
-        main_layout.addWidget(btn2)
+        add_card_widget(btn2)
         self.tpl_label = QLabel('No template selected')
-        main_layout.addWidget(self.tpl_label)
+        self.tpl_label.setStyleSheet('color: #eee')
+        add_card_widget(self.tpl_label)
 
-        # API Key input
+        # API key input
         api_label = QLabel('Enter API Key:')
-        main_layout.addWidget(api_label)
+        api_label.setStyleSheet('color: #eee')
+        add_card_widget(api_label)
         self.api_input = QLineEdit()
         self.api_input.setEchoMode(QLineEdit.Password)
         self.api_input.setPlaceholderText('sk-...')
-        main_layout.addWidget(self.api_input)
+        add_card_widget(self.api_input)
 
-        # Extract Data button
+        # Extract button
         extract_btn = QPushButton('Extract Data')
         extract_btn.clicked.connect(self.extract_data)
-        main_layout.addWidget(extract_btn)
+        add_card_widget(extract_btn)
 
-        # Open ChatGPT Web UI button
-        open_web_btn = QPushButton('Open ChatGPT Web UI')
-        open_web_btn.clicked.connect(self.open_web_ui)
-        main_layout.addWidget(open_web_btn)
+        # Open ChatGPT web UI button
+        chatgpt_btn = QPushButton('Open ChatGPT Web UI')
+        chatgpt_btn.clicked.connect(lambda: self.open_url("https://chat.openai.com"))
+        add_card_widget(chatgpt_btn)
 
-        # Copy extracted JSON to clipboard
-        copy_json_btn = QPushButton('Copy Extracted JSON to Clipboard')
-        copy_json_btn.clicked.connect(self.copy_json_to_clipboard)
-        main_layout.addWidget(copy_json_btn)
+        # Copy JSON to clipboard
+        copy_btn = QPushButton('Copy Extracted JSON to Clipboard')
+        copy_btn.clicked.connect(self.copy_json_to_clipboard)
+        add_card_widget(copy_btn)
 
-        # Upload extracted JSON file from web UI
-        upload_json_btn = QPushButton('Upload Extracted JSON File (from ChatGPT)')
-        upload_json_btn.clicked.connect(self.upload_json_file)
-        main_layout.addWidget(upload_json_btn)
+        # Upload JSON (from ChatGPT)
+        upload_btn = QPushButton('Upload Extracted JSON File (from ChatGPT)')
+        upload_btn.clicked.connect(self.upload_json_from_chatgpt)
+        add_card_widget(upload_btn)
 
-        self.setLayout(main_layout)
+        outer.addLayout(card)
+        self.setLayout(outer)
 
     def upload_financial(self):
         files, _ = QFileDialog.getOpenFileNames(
             self, 'Choose Financial Files',
-            filter='All Files (*.pdf *.xlsx *.xlsm *.jpg *.png)'
+            filter='PDF Files (*.pdf);;All Files (*)'
         )
         if files:
             self.fin_files = files
             self.fin_label.setText(', '.join([os.path.basename(f) for f in files]))
-            self.fin_label.setStyleSheet('color: green')
+            self.fin_label.setStyleSheet('color: #7ee57a')
         else:
             self.fin_files = []
             self.fin_label.setText('No financial files selected')
-            self.fin_label.setStyleSheet('color: red')
+            self.fin_label.setStyleSheet('color: #ff6961')
 
     def upload_template(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -103,11 +120,11 @@ class FinancialAnalysis(QWidget):
         if path:
             self.tpl_file = path
             self.tpl_label.setText(os.path.basename(path))
-            self.tpl_label.setStyleSheet('color: green')
+            self.tpl_label.setStyleSheet('color: #7ee57a')
         else:
             self.tpl_file = None
             self.tpl_label.setText('No template selected')
-            self.tpl_label.setStyleSheet('color: red')
+            self.tpl_label.setStyleSheet('color: #ff6961')
 
     def extract_data(self):
         self.api_key = self.api_input.text().strip()
@@ -119,12 +136,12 @@ class FinancialAnalysis(QWidget):
             return
 
         extractor = os.path.join(os.path.dirname(__file__), 'extract.py')
-        json_path = self.extracted_json_path
+        json_path = os.path.join(os.getcwd(), 'gpt4o_extracted.json')
 
         args = [
             sys.executable, extractor,
             '--key', self.api_key,
-            '--prompt', '',  # No user prompt, just pass empty string
+            '--prompt', '',  # No user prompt needed now
             *self.fin_files
         ]
         try:
@@ -137,53 +154,42 @@ class FinancialAnalysis(QWidget):
             QMessageBox.critical(self, 'Extraction Error', 'Extraction did not produce output file.')
             return
 
-        QMessageBox.information(self, 'Extraction Complete', "Data extraction complete.\nYou can now copy the JSON, open it in ChatGPT, or upload the final JSON for Excel processing.")
-
-    def open_web_ui(self):
-        import webbrowser
-        webbrowser.open('https://chat.openai.com/')  # or use your preferred web UI
+        # Load for clipboard and upload functions
+        with open(json_path) as f:
+            self.json_data = json.load(f)
+        QMessageBox.information(self, 'Extraction Complete', 'Data extracted and ready.')
 
     def copy_json_to_clipboard(self):
-        if not os.path.isfile(self.extracted_json_path):
-            QMessageBox.warning(self, 'Error', 'No extracted JSON file found.')
+        if self.json_data is None:
+            QMessageBox.warning(self, 'Copy Error', 'No extracted JSON loaded.')
             return
-        with open(self.extracted_json_path) as f:
-            data = f.read()
         cb = QApplication.clipboard()
-        cb.setText(data)
+        cb.setText(json.dumps(self.json_data, indent=2))
         QMessageBox.information(self, 'Copied', 'Extracted JSON copied to clipboard!')
 
-    def upload_json_file(self):
+    def upload_json_from_chatgpt(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, 'Choose Extracted JSON File',
+            self, 'Select Extracted JSON File',
             filter='JSON Files (*.json);;All Files (*)'
         )
         if not path:
             return
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            self.json_data = data
+        except Exception as e:
+            QMessageBox.critical(self, 'Load Error', f"Failed to load JSON: {e}")
+            return
+
         if not self.tpl_file:
             QMessageBox.warning(self, 'Error', 'No Excel template selected.')
             return
         try:
-            with open(path) as f:
-                data = json.load(f)
-            # Accept both dict or list
-            extracted_data_list = []
-            if isinstance(data, dict):
-                extracted_data_list.append(data)
-            elif isinstance(data, list):
-                extracted_data_list.extend(data)
-            else:
-                raise Exception("Extracted JSON is not dict or list.")
-        except Exception as e:
-            QMessageBox.critical(self, 'Data Error', f'Problem loading extracted data: {e}')
-            return
-
-        try:
-            map_to_excel(extracted_data_list, self.tpl_file, None)
+            map_to_excel(self.json_data, self.tpl_file, None)
         except Exception as e:
             QMessageBox.critical(self, 'Compile Error', str(e))
             return
-
         open_reply = QMessageBox.question(
             self,
             'Processing complete',
@@ -196,14 +202,17 @@ class FinancialAnalysis(QWidget):
     def open_file(self, filepath):
         if platform.system() == 'Darwin':       # macOS
             subprocess.run(['open', filepath])
-        elif platform.system() == 'Windows':    # Windows
+        elif platform.system() == 'Windows':
             os.startfile(filepath)
-        else:                                   # Linux and others
+        else:
             subprocess.run(['xdg-open', filepath])
+
+    def open_url(self, url):
+        import webbrowser
+        webbrowser.open(url)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     win = FinancialAnalysis()
     win.show()
     sys.exit(app.exec_())
-    
