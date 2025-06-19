@@ -12,7 +12,7 @@ from PyQt5.QtCore import Qt
 from compiler import map_to_excel  # Import as a function
 
 API_KEY_FILE = "api_key.txt"
-LOGO_PATH = os.path.join(os.path.dirname(__file__), "Logo.png")
+LOGO_PATH = resource_path("Logo.png")
 BUTTON_WIDTH = 340  # Unified width for all elements
 
 class ApiKeyDialog(QDialog):
