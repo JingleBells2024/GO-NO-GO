@@ -7,11 +7,12 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QFileDialog, QMessageBox, QLabel, QLineEdit, QSizePolicy
 )
-from PyQt5.QtGui import QPixmap, QIcon
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
-from compiler import map_to_excel  # Your Excel mapping function
+from compiler import map_to_excel
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "Logo.png")
+API_KEY_FILE = os.path.join(os.path.expanduser("~"), ".dealsheet_api_key")
 
 class FinancialAnalysis(QWidget):
     def __init__(self):
@@ -19,19 +20,16 @@ class FinancialAnalysis(QWidget):
         self.setWindowTitle('Deal Sheet – Financial Analysis')
         self.resize(470, 750)
         self.setStyleSheet("background: #28292e;")
-
         self.fin_files = []
         self.tpl_file = None
         self.api_key = None
         self.extracted_data_list = []
         self.json_data = None
 
-        # Layouts
         outer = QVBoxLayout()
         outer.setAlignment(Qt.AlignTop)
         outer.setSpacing(12)
 
-        # Logo (larger: 280x280)
         logo_label = QLabel()
         pixmap = QPixmap(LOGO_PATH)
         pixmap = pixmap.scaled(280, 280, Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -39,7 +37,6 @@ class FinancialAnalysis(QWidget):
         logo_label.setAlignment(Qt.AlignHCenter)
         outer.addWidget(logo_label, alignment=Qt.AlignHCenter)
 
-        # Card Layout for all buttons/inputs
         card = QVBoxLayout()
         card.setAlignment(Qt.AlignTop)
         card.setSpacing(10)
@@ -58,7 +55,6 @@ class FinancialAnalysis(QWidget):
         self.fin_label.setStyleSheet('color: #eee')
         add_card_widget(self.fin_label)
 
-        # Template file
         btn2 = QPushButton('Upload Excel Template')
         btn2.clicked.connect(self.upload_template)
         add_card_widget(btn2)
@@ -66,7 +62,6 @@ class FinancialAnalysis(QWidget):
         self.tpl_label.setStyleSheet('color: #eee')
         add_card_widget(self.tpl_label)
 
-        # API key input
         api_label = QLabel('Enter API Key:')
         api_label.setStyleSheet('color: #eee')
         add_card_widget(api_label)
@@ -75,28 +70,56 @@ class FinancialAnalysis(QWidget):
         self.api_input.setPlaceholderText('sk-...')
         add_card_widget(self.api_input)
 
-        # Extract button
+        # Load API key if saved
+        self.load_api_key()
+
+        # Save API key button
+        save_key_btn = QPushButton('Save API Key')
+        save_key_btn.clicked.connect(self.save_api_key)
+        add_card_widget(save_key_btn)
+
         extract_btn = QPushButton('Extract Data')
         extract_btn.clicked.connect(self.extract_data)
         add_card_widget(extract_btn)
 
-        # Open ChatGPT web UI button
         chatgpt_btn = QPushButton('Open ChatGPT Web UI')
         chatgpt_btn.clicked.connect(lambda: self.open_url("https://chat.openai.com"))
         add_card_widget(chatgpt_btn)
 
-        # Copy JSON to clipboard
         copy_btn = QPushButton('Copy Extracted JSON to Clipboard')
         copy_btn.clicked.connect(self.copy_json_to_clipboard)
         add_card_widget(copy_btn)
 
-        # Upload JSON (from ChatGPT)
         upload_btn = QPushButton('Upload Extracted JSON File (from ChatGPT)')
         upload_btn.clicked.connect(self.upload_json_from_chatgpt)
         add_card_widget(upload_btn)
 
         outer.addLayout(card)
         self.setLayout(outer)
+
+    def load_api_key(self):
+        """Loads API key from file if available."""
+        if os.path.exists(API_KEY_FILE):
+            try:
+                with open(API_KEY_FILE, 'r') as f:
+                    key = f.read().strip()
+                self.api_input.setText(key)
+            except Exception:
+                pass
+
+    def save_api_key(self):
+        """Saves API key to local file."""
+        key = self.api_input.text().strip()
+        if not key:
+            QMessageBox.warning(self, 'Error', 'API key is empty.')
+            return
+        try:
+            with open(API_KEY_FILE, 'w') as f:
+                f.write(key)
+            os.chmod(API_KEY_FILE, 0o600)  # Only readable/writable by user
+            QMessageBox.information(self, 'Success', 'API key saved securely.')
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', f'Failed to save API key: {e}')
 
     def upload_financial(self):
         files, _ = QFileDialog.getOpenFileNames(
@@ -154,7 +177,6 @@ class FinancialAnalysis(QWidget):
             QMessageBox.critical(self, 'Extraction Error', 'Extraction did not produce output file.')
             return
 
-        # Load for clipboard and upload functions
         with open(json_path) as f:
             self.json_data = json.load(f)
         QMessageBox.information(self, 'Extraction Complete', 'Data extracted and ready.')
@@ -200,7 +222,7 @@ class FinancialAnalysis(QWidget):
             self.open_file(self.tpl_file)
 
     def open_file(self, filepath):
-        if platform.system() == 'Darwin':       # macOS
+        if platform.system() == 'Darwin':
             subprocess.run(['open', filepath])
         elif platform.system() == 'Windows':
             os.startfile(filepath)
