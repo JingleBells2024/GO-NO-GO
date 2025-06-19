@@ -1,44 +1,90 @@
 import sys
 import os
-import argparse
 import json
+import argparse
 import openai
 from pdf2image import convert_from_path
-import io
-import re
+from io import BytesIO
+import base64
 
-def extract_json_from_gpt_output(gpt_output):
-    # Remove triple backticks and optional language tags
-    cleaned = re.sub(r"```(?:json)?", "", gpt_output, flags=re.IGNORECASE).strip()
-    # Extract JSON array if present
-    match = re.search(r"($begin:math:display$\\s*{.*?}\\s*$end:math:display$)", cleaned, re.DOTALL)
-    if match:
-        return match.group(1)
-    return cleaned
+HARDCODED_PROMPT = """
+Read the financial data below. For each year, copy the numbers into this exact schema—one record per year.
+If a number is missing, use 0.
+Return only valid JSON—no extra text.
+[
+  {
+    "year": 2022,
+    "Revenue": ...,
+    "Cost of Goods Sold (COGS)": ...,
+    "Less Operating Expenses": ...,
+    "Other Income": ...,
+    "Plus Owner Salary+Super etc": ...,
+    "Plus Owner Benefits": ...,
+    "Total add backs": ...
+  },
+  {
+    "year": 2023,
+    "Revenue": ...,
+    "Cost of Goods Sold (COGS)": ...,
+    "Less Operating Expenses": ...,
+    "Other Income": ...,
+    "Plus Owner Salary+Super etc": ...,
+    "Plus Owner Benefits": ...,
+    "Total add backs": ...
+  },
+  {
+    "year": 2024,
+    "Revenue": ...,
+    "Cost of Goods Sold (COGS)": ...,
+    "Less Operating Expenses": ...,
+    "Other Income": ...,
+    "Plus Owner Salary+Super etc": ...,
+    "Plus Owner Benefits": ...,
+    "Total add backs": ...
+  },
+  {
+    "year": 2025,
+    "Revenue": ...,
+    "Cost of Goods Sold (COGS)": ...,
+    "Less Operating Expenses": ...,
+    "Other Income": ...,
+    "Plus Owner Salary+Super etc": ...,
+    "Plus Owner Benefits": ...,
+    "Total add backs": ...
+  }
+]
+Do not add or remove fields. Do not estimate or infer values. Only copy numbers as written.
+If a field is missing for a year, use 0.
+Return only the JSON array—no commentary, no formatting, no markdown.
+"""
 
-def pdf_to_images(pdf_path):
-    # Convert PDF to images (in-memory)
-    images = convert_from_path(pdf_path)
-    bufs = []
-    for img in images:
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        buf.seek(0)
-        bufs.append(buf)
-    return bufs
+def pdfs_to_images(pdf_paths):
+    images = []
+    for pdf_path in pdf_paths:
+        imgs = convert_from_path(pdf_path)
+        for img in imgs:
+            buf = BytesIO()
+            img.save(buf, format='PNG')
+            buf.seek(0)
+            images.append(buf.read())
+    return images
 
-def vision_extract(api_key, image_buffers, prompt):
+def vision_extract(api_key, images, user_prompt):
     client = openai.OpenAI(api_key=api_key)
+    # Combine user prompt and hardcoded prompt
+    combined_prompt = (user_prompt.strip() + "\n\n" + HARDCODED_PROMPT.strip()).strip()
+    # Prepare message for GPT-4o vision
+    contents = [{"type": "text", "text": combined_prompt}]
+    for img in images:
+        b64_img = base64.b64encode(img).decode('utf-8')
+        contents.append({
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/png;base64,{b64_img}"
+            }
+        })
     messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt},
-            ] + [
-                {"type": "image_url", "image_url": {"data": buf.getvalue(), "mime_type": "image/png"}}
-                for buf in image_buffers
-            ]
-        }
+        {"role": "user", "content": contents}
     ]
     resp = client.chat.completions.create(
         model="gpt-4o",
@@ -48,69 +94,35 @@ def vision_extract(api_key, image_buffers, prompt):
     )
     return resp.choices[0].message.content.strip()
 
+def extract_json_from_output(output):
+    # Try to find the first JSON array in the output
+    try:
+        start = output.index('[')
+        end = output.rindex(']') + 1
+        json_str = output[start:end]
+        return json.loads(json_str)
+    except Exception as e:
+        raise RuntimeError(f"Could not parse JSON from GPT output.\nGPT output was:\n{output}")
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--key', required=True, help='OpenAI API key')
-    parser.add_argument('--prompt', required=True, help='User/custom prompt (additional instructions)')
-    parser.add_argument('files', nargs='+', help='List of PDF/image files')
+    parser.add_argument('--prompt', required=True, help='User extraction prompt')
+    parser.add_argument('files', nargs='+', help='List of PDF files')
+    parser.add_argument('-o', '--output', default='gpt4o_extracted.json')
     args = parser.parse_args()
 
-    # Hardcoded technical requirements prompt (always appended)
-    base_prompt = (
-        "Return the extracted data in this exact JSON array format, one object per year. "
-        "If a value is missing, use 0. Do not add or remove any fields. "
-        "Do not include any explanation or markdown—only return the JSON array:\n\n"
-        "[\n"
-        "  {\n"
-        "    \"year\": 2022,\n"
-        "    \"Revenue\": ..., \n"
-        "    \"Cost of Goods Sold (COGS)\": ..., \n"
-        "    \"Less Operating Expenses\": ..., \n"
-        "    \"Other Income\": ..., \n"
-        "    \"Plus Owner Salary+Super etc\": ..., \n"
-        "    \"Plus Owner Benefits\": ..., \n"
-        "    \"Total add backs\": ...\n"
-        "  },\n"
-        "  ...\n"
-        "]\n"
-        "Do not include triple backticks or any markdown formatting. Output only the JSON array."
-    )
-
-    # Compose full prompt
-    prompt = args.prompt.strip() + "\n\n" + base_prompt
-
-    # Convert all PDFs to images (in memory)
-    all_imgs = []
-    for fpath in args.files:
-        ext = os.path.splitext(fpath)[-1].lower()
-        if ext == ".pdf":
-            all_imgs += pdf_to_images(fpath)
-        else:
-            # Assume it's an image file
-            with open(fpath, "rb") as imgf:
-                img_buf = io.BytesIO(imgf.read())
-                img_buf.seek(0)
-                all_imgs.append(img_buf)
-
-    print(f"Extracting {len(all_imgs)} page(s) from {len(args.files)} file(s)...")
-
-    # Send all images and prompt to GPT-4o Vision
-    gpt_output = vision_extract(args.key, all_imgs, prompt)
-    print("--- RAW GPT OUTPUT ---\n", gpt_output)
-
-    # Clean and extract JSON
-    json_str = extract_json_from_gpt_output(gpt_output)
+    print(f"Extracting {sum(convert_from_path(f).__len__() for f in args.files)} page(s) from {len(args.files)} file(s)...")
+    images = pdfs_to_images(args.files)
+    gpt_output = vision_extract(args.key, images, args.prompt)
     try:
-        data = json.loads(json_str)
+        extracted = extract_json_from_output(gpt_output)
     except Exception as e:
-        print("Could not extract JSON from GPT output: Could not parse JSON from GPT output.")
-        print("GPT output was:\n", gpt_output)
+        print(str(e))
         sys.exit(1)
-
-    # Save result to file
-    with open('gpt4o_extracted.json', 'w') as f:
-        json.dump(data, f, indent=2)
-    print("Extracted data saved to gpt4o_extracted.json")
+    with open(args.output, 'w') as f:
+        json.dump(extracted, f, indent=2)
+    print(f"Extracted data saved to {args.output}")
 
 if __name__ == "__main__":
     main()
