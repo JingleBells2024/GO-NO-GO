@@ -31,6 +31,7 @@ class FinancialAnalysis(QWidget):
         self.fin_label = QLabel('No financial files selected')
         layout.addWidget(self.fin_label)
 
+        # THIS IS THE MISSING BUTTON:
         btn_json = QPushButton('Upload Extracted JSON File')
         btn_json.clicked.connect(self.upload_json)
         layout.addWidget(btn_json)
