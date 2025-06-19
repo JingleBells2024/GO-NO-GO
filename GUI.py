@@ -11,6 +11,12 @@ from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 from compiler import map_to_excel  # Import as a function
 
+def resource_path(relative_path):
+     # When packaged, sys._MEIPASS is the temp folder where resources are extracted
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.dirname(__file__), relative_path)
+
 API_KEY_FILE = "api_key.txt"
 LOGO_PATH = resource_path("Logo.png")
 BUTTON_WIDTH = 340  # Unified width for all elements
@@ -35,12 +41,6 @@ class ApiKeyDialog(QDialog):
 
     def get_key(self):
         return self.input.text().strip()
-
-    def resource_path(relative_path):
-        # When packaged, sys._MEIPASS is the temp folder where resources are extracted
-        if hasattr(sys, '_MEIPASS'):
-            return os.path.join(sys._MEIPASS, relative_path)
-        return os.path.join(os.path.dirname(__file__), relative_path)
 
 class FinancialAnalysis(QWidget):
     def __init__(self):
