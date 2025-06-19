@@ -58,16 +58,16 @@ class FinancialAnalysis(QWidget):
         main_layout.addWidget(self.tpl_label)
 
         # API Key row: label + input in one line, both fixed width
-        api_row = QHBoxLayout()
         api_label = QLabel('Enter API Key:')
-        api_label.setFixedWidth(105)
+        api_label.setAlignment(Qt.AlignCenter)
+        api_label.setFixedWidth(BUTTON_WIDTH)
+        main_layout.addWidget(api_label)
+
         self.api_input = QLineEdit()
-        self.api_input.setFixedWidth(BUTTON_WIDTH - 105)
+        self.api_input.setFixedWidth(BUTTON_WIDTH)
         self.api_input.setEchoMode(QLineEdit.Password)
         self.api_input.setPlaceholderText('sk-...')
-        api_row.addWidget(api_label)
-        api_row.addWidget(self.api_input)
-        main_layout.addLayout(api_row)
+        main_layout.addWidget(self.api_input)
 
         # Load API key if exists
         if os.path.exists(API_KEY_FILE):
