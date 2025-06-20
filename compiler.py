@@ -56,12 +56,22 @@ def map_to_excel(json_data, excel_path, output_path=None):
         "Cost of Goods Sold (COGS)": "Cost of Goods Sold (COGS)",
         "Less Operating Expenses": "Less Operating Expenses",
         "Other Income": "Other Income",
+        "Taxes": "Taxes",
+        "Plus Depreciation & Amortization": "Plus Depreciation & Amortization",
+        "Plus Interest": "Plus Interest",
+        "Plus Taxes": "Plus Taxes",
         "Plus Owner Salary+Super etc": "Plus Owner Salary+Super etc",
         "Plus Owner Benefits": "Plus Owner Benefits",
-        "Plus Taxes": "Plus Taxes",
-        "Total add backs": "Total add backs"
+        "Manager Salary": "Manager Salary",
+        "Investor Salary": "Investor Salary",
+        "One off Revenue Adjustments": "One off Revenue Adjustments",
+        "One off Expenses Adjustments": "One off Expenses Adjustments",
+        "Other Adjustments 1": "Other Adjustments 1",
+        "Other Adjustments 2": "Other Adjustments 2",
+        "Total add backs": "Total add backs",
+        "Total SDE Adjustments": "Total SDE Adjustments",
+        "Total Adjustments": "Total Adjustments"
     }
-
     for entry in data:
         yr = str(entry["year"]).strip()
         if yr not in years:

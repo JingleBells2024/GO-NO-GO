@@ -18,9 +18,21 @@ Return only valid JSON—no extra text.
     "Cost of Goods Sold (COGS)": ...,
     "Less Operating Expenses": ...,
     "Other Income": ...,
+    "Taxes": ...,
+    "Plus Depreciation & Amortization": ...,
+    "Plus Interest": ...,
+    "Plus Taxes": ...,
     "Plus Owner Salary+Super etc": ...,
     "Plus Owner Benefits": ...,
-    "Total add backs": ...
+    "Manager Salary": ...,
+    "Investor Salary": ...,
+    "One off Revenue Adjustments": ...,
+    "One off Expenses Adjustments": ...,
+    "Other Adjustments 1": ...,
+    "Other Adjustments 2": ...,
+    "Total add backs": ...,
+    "Total SDE Adjustments": ...,
+    "Total Adjustments": ...
   },
   {
     "year": 2023,
@@ -28,9 +40,21 @@ Return only valid JSON—no extra text.
     "Cost of Goods Sold (COGS)": ...,
     "Less Operating Expenses": ...,
     "Other Income": ...,
+    "Taxes": ...,
+    "Plus Depreciation & Amortization": ...,
+    "Plus Interest": ...,
+    "Plus Taxes": ...,
     "Plus Owner Salary+Super etc": ...,
     "Plus Owner Benefits": ...,
-    "Total add backs": ...
+    "Manager Salary": ...,
+    "Investor Salary": ...,
+    "One off Revenue Adjustments": ...,
+    "One off Expenses Adjustments": ...,
+    "Other Adjustments 1": ...,
+    "Other Adjustments 2": ...,
+    "Total add backs": ...,
+    "Total SDE Adjustments": ...,
+    "Total Adjustments": ...
   },
   {
     "year": 2024,
@@ -38,9 +62,21 @@ Return only valid JSON—no extra text.
     "Cost of Goods Sold (COGS)": ...,
     "Less Operating Expenses": ...,
     "Other Income": ...,
+    "Taxes": ...,
+    "Plus Depreciation & Amortization": ...,
+    "Plus Interest": ...,
+    "Plus Taxes": ...,
     "Plus Owner Salary+Super etc": ...,
     "Plus Owner Benefits": ...,
-    "Total add backs": ...
+    "Manager Salary": ...,
+    "Investor Salary": ...,
+    "One off Revenue Adjustments": ...,
+    "One off Expenses Adjustments": ...,
+    "Other Adjustments 1": ...,
+    "Other Adjustments 2": ...,
+    "Total add backs": ...,
+    "Total SDE Adjustments": ...,
+    "Total Adjustments": ...
   },
   {
     "year": 2025,
@@ -48,9 +84,21 @@ Return only valid JSON—no extra text.
     "Cost of Goods Sold (COGS)": ...,
     "Less Operating Expenses": ...,
     "Other Income": ...,
+    "Taxes": ...,
+    "Plus Depreciation & Amortization": ...,
+    "Plus Interest": ...,
+    "Plus Taxes": ...,
     "Plus Owner Salary+Super etc": ...,
     "Plus Owner Benefits": ...,
-    "Total add backs": ...
+    "Manager Salary": ...,
+    "Investor Salary": ...,
+    "One off Revenue Adjustments": ...,
+    "One off Expenses Adjustments": ...,
+    "Other Adjustments 1": ...,
+    "Other Adjustments 2": ...,
+    "Total add backs": ...,
+    "Total SDE Adjustments": ...,
+    "Total Adjustments": ...
   }
 ]
 Do not add or remove fields. Do not estimate or infer values. Only copy numbers as written.
