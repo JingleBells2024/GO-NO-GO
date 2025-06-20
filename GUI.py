@@ -9,17 +9,17 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
-from compiler import map_to_excel  # Import as a function
+from compiler import map_to_excel
+
+API_KEY_FILE = "api_key.txt"
+BUTTON_WIDTH = 340
 
 def resource_path(relative_path):
-     # When packaged, sys._MEIPASS is the temp folder where resources are extracted
     if hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.dirname(__file__), relative_path)
 
-API_KEY_FILE = "api_key.txt"
 LOGO_PATH = resource_path("Logo.png")
-BUTTON_WIDTH = 340  # Unified width for all elements
 
 class ApiKeyDialog(QDialog):
     def __init__(self, parent=None, current_key=""):
@@ -38,7 +38,6 @@ class ApiKeyDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         self.setLayout(layout)
-
     def get_key(self):
         return self.input.text().strip()
 
@@ -46,32 +45,23 @@ class FinancialAnalysis(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Deal Sheet – Financial Analysis')
-        self.resize(BUTTON_WIDTH + 80, 740)
+        self.resize(BUTTON_WIDTH + 80, 700)
         self.center()
-
         self.fin_files = []
         self.tpl_file = None
-        self.api_key = None
-        self.extracted_data_list = []
-        self.last_extracted_json = None
-
-        # Load API key if exists
         self.api_key = ""
         if os.path.exists(API_KEY_FILE):
             with open(API_KEY_FILE, 'r') as f:
                 self.api_key = f.read().strip()
-
         main_layout = QVBoxLayout()
         main_layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-
         # Logo
         if os.path.exists(LOGO_PATH):
             logo_label = QLabel()
             pixmap = QPixmap(LOGO_PATH)
-            logo_label.setPixmap(pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            logo_label.setPixmap(pixmap.scaled(250, 250, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             logo_label.setAlignment(Qt.AlignCenter)
             main_layout.addWidget(logo_label)
-
         # Upload financial files
         btn1 = QPushButton('Upload Financial Files')
         btn1.setFixedWidth(BUTTON_WIDTH)
@@ -80,7 +70,6 @@ class FinancialAnalysis(QWidget):
         self.fin_label = QLabel('No financial files selected')
         self.fin_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(self.fin_label)
-
         # Upload Excel template
         btn2 = QPushButton('Upload Excel Template')
         btn2.setFixedWidth(BUTTON_WIDTH)
@@ -89,39 +78,19 @@ class FinancialAnalysis(QWidget):
         self.tpl_label = QLabel('No template selected')
         self.tpl_label.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(self.tpl_label)
-
         # API Key Button
         self.api_btn = QPushButton('Enter API Key')
         self.api_btn.setFixedWidth(BUTTON_WIDTH)
         self.api_btn.clicked.connect(self.open_api_dialog)
         main_layout.addWidget(self.api_btn)
-
-        # Show status for API key
         self.api_status = QLabel(self.api_key_status())
         self.api_status.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(self.api_status)
-
-        # Buttons (all fixed width)
-        extract_btn = QPushButton('Extract Data')
-        extract_btn.setFixedWidth(BUTTON_WIDTH)
-        extract_btn.clicked.connect(self.extract_data)
-        main_layout.addWidget(extract_btn)
-
-        open_web_btn = QPushButton('Open ChatGPT Web UI')
-        open_web_btn.setFixedWidth(BUTTON_WIDTH)
-        open_web_btn.clicked.connect(self.open_web)
-        main_layout.addWidget(open_web_btn)
-
-        copy_btn = QPushButton('Copy Extracted JSON to Clipboard')
-        copy_btn.setFixedWidth(BUTTON_WIDTH)
-        copy_btn.clicked.connect(self.copy_json)
-        main_layout.addWidget(copy_btn)
-
-        upload_json_btn = QPushButton('Upload Extracted JSON File (from ChatGPT)')
-        upload_json_btn.setFixedWidth(BUTTON_WIDTH)
-        upload_json_btn.clicked.connect(self.upload_json)
-        main_layout.addWidget(upload_json_btn)
-
+        # Submit Button
+        submit_btn = QPushButton('Submit')
+        submit_btn.setFixedWidth(BUTTON_WIDTH)
+        submit_btn.clicked.connect(self.submit)
+        main_layout.addWidget(submit_btn)
         self.setLayout(main_layout)
 
     def center(self):
@@ -178,21 +147,22 @@ class FinancialAnalysis(QWidget):
             self.tpl_label.setText('No template selected')
             self.tpl_label.setStyleSheet('color: red')
 
-    def extract_data(self):
+    def submit(self):
         if not self.api_key or not (self.api_key.startswith("sk-") and len(self.api_key) > 10):
             QMessageBox.warning(self, 'Error', 'Please enter and save a valid API key.')
             return
         if not self.fin_files:
             QMessageBox.warning(self, 'Error', 'Upload at least one financial file.')
             return
-
+        if not self.tpl_file:
+            QMessageBox.warning(self, 'Error', 'Upload an Excel template.')
+            return
         extractor = os.path.join(os.path.dirname(__file__), 'extract.py')
         json_path = os.path.join(os.getcwd(), 'gpt4o_extracted.json')
-
         args = [
             sys.executable, extractor,
             '--key', self.api_key,
-            '--prompt', '',  # blank prompt, as UI prompt is removed
+            '--prompt', '',  # Prompt left blank for hardcoded
             *self.fin_files
         ]
         try:
@@ -200,58 +170,17 @@ class FinancialAnalysis(QWidget):
         except Exception as e:
             QMessageBox.critical(self, 'Extraction Error', str(e))
             return
-
         if not os.path.isfile(json_path):
             QMessageBox.critical(self, 'Extraction Error', 'Extraction did not produce output file.')
             return
-
-        self.last_extracted_json = json_path
-        QMessageBox.information(self, "Extraction Complete", "Data extraction completed successfully.")
-
-    def copy_json(self):
-        json_path = self.last_extracted_json or os.path.join(os.getcwd(), 'gpt4o_extracted.json')
-        if not os.path.isfile(json_path):
-            QMessageBox.warning(self, "Copy Error", "No extracted JSON to copy.")
-            return
-        with open(json_path) as f:
-            data = f.read()
-        cb = QApplication.clipboard()
-        cb.setText(data)
-        QMessageBox.information(self, "Copied", "Extracted JSON copied to clipboard.")
-
-    def open_web(self):
-        import webbrowser
-        webbrowser.open('https://chat.openai.com/')
-
-    def upload_json(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, 'Select Extracted JSON File',
-            filter='JSON Files (*.json)'
-        )
-        if not path:
-            return
-        if not self.tpl_file:
-            QMessageBox.warning(self, 'Error', 'No Excel template selected.')
-            return
+        # Now fill the Excel template
         try:
-            with open(path) as f:
+            with open(json_path) as f:
                 data = json.load(f)
-            if isinstance(data, dict):
-                self.extracted_data_list.append(data)
-            elif isinstance(data, list):
-                self.extracted_data_list.extend(data)
-            else:
-                raise Exception("Extracted JSON is not dict or list.")
-        except Exception as e:
-            QMessageBox.critical(self, 'Data Error', f'Problem loading extracted data: {e}')
-            return
-
-        try:
-            map_to_excel(self.extracted_data_list, self.tpl_file, None)
+            map_to_excel(data, self.tpl_file, None)
         except Exception as e:
             QMessageBox.critical(self, 'Compile Error', str(e))
             return
-
         open_reply = QMessageBox.question(
             self,
             'Processing complete',
@@ -260,7 +189,6 @@ class FinancialAnalysis(QWidget):
         )
         if open_reply == QMessageBox.Yes:
             self.open_file(self.tpl_file)
-        self.extracted_data_list = []
 
     def open_file(self, filepath):
         if platform.system() == 'Darwin':       # macOS
