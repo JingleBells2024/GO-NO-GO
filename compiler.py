@@ -68,9 +68,6 @@ def map_to_excel(json_data, excel_path, output_path=None):
         "One off Expenses Adjustments": "One off Expenses Adjustments",
         "Other Adjustments 1": "Other Adjustments 1",
         "Other Adjustments 2": "Other Adjustments 2",
-        "Total add backs": "Total add backs",
-        "Total SDE Adjustments": "Total SDE Adjustments",
-        "Total Adjustments": "Total Adjustments"
     }
     for entry in data:
         yr = str(entry["year"]).strip()

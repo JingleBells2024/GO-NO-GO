@@ -12,6 +12,28 @@ Read the financial data below. For each year, copy the numbers into this exact s
 If a number is missing, use 0.
 Return only valid JSON—no extra text.
 [
+{
+    "year": 2021,
+    "Revenue": ...,
+    "Cost of Goods Sold (COGS)": ...,
+    "Less Operating Expenses": ...,
+    "Other Income": ...,
+    "Taxes": ...,
+    "Plus Depreciation & Amortization": ...,
+    "Plus Interest": ...,
+    "Plus Taxes": ...,
+    "Plus Owner Salary+Super etc": ...,
+    "Plus Owner Benefits": ...,
+    "Manager Salary": ...,
+    "Investor Salary": ...,
+    "One off Revenue Adjustments": ...,
+    "One off Expenses Adjustments": ...,
+    "Other Adjustments 1": ...,
+    "Other Adjustments 2": ...,
+    "Total add backs": ...,
+    "Total SDE Adjustments": ...,
+    "Total Adjustments": ...
+  },
   {
     "year": 2022,
     "Revenue": ...,
